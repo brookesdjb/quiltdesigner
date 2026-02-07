@@ -1,6 +1,6 @@
 import { type AppState, type QuiltBlock, ShapeType, SymmetryMode } from "./types";
 import { SeededRandom } from "./random";
-import { PALETTES } from "./palette";
+import { getAllPalettes } from "./palette";
 
 function buildWeightedShapePool(state: AppState): ShapeType[] {
   const pool: ShapeType[] = [];
@@ -284,14 +284,17 @@ function generateTile(
 
 export function generateGrid(state: AppState): QuiltBlock[][] {
   const rng = new SeededRandom(state.seed);
-  const palette = PALETTES[state.paletteIndex % PALETTES.length];
+  const palettes = getAllPalettes(state.customPalettes);
+  const palette = palettes[state.paletteIndex % palettes.length];
+  const colorCount = Math.max(1, Math.min(state.paletteColorCount, palette.colors.length));
+  const paletteColors = palette.colors.slice(0, colorCount);
   const pool = buildWeightedShapePool(state);
   const { gridWidth, gridHeight, symmetry, symmetryMode, repeatWidth, repeatHeight } = state;
 
   const tileW = repeatWidth > 0 ? Math.min(repeatWidth, gridWidth) : gridWidth;
   const tileH = repeatHeight > 0 ? Math.min(repeatHeight, gridHeight) : gridHeight;
 
-  const tile = generateTile(tileW, tileH, symmetry, symmetryMode, rng, pool, palette.colors);
+  const tile = generateTile(tileW, tileH, symmetry, symmetryMode, rng, pool, paletteColors);
 
   const grid: QuiltBlock[][] = Array.from({ length: gridHeight }, (_, row) =>
     Array.from({ length: gridWidth }, (_, col) => tile[row % tileH][col % tileW])

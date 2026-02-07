@@ -68,6 +68,8 @@ export function defaultState(): AppState {
       [ShapeType.QST]: 33,
     },
     paletteIndex: 0,
+    customPalettes: [],
+    paletteColorCount: 6,
     repeatWidth: 4,
     repeatHeight: 4,
   };

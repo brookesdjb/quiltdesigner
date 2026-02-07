@@ -223,6 +223,60 @@
       transition: border-color 0.15s;
     }
 
+    .palette-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .palette-editor input[type="text"] {
+      background: #2a2a4a;
+      border: 1px solid #3a3a5a;
+      border-radius: 4px;
+      color: #e0e0e0;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .palette-editor input[type="text"]:focus {
+      border-color: #6c63ff;
+    }
+
+    .palette-colors {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .palette-colors input[type="color"] {
+      width: 100%;
+      height: 32px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .palette-photo {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .palette-photo canvas {
+      width: 100%;
+      height: 160px;
+      background: #141424;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+    }
+
+    .palette-photo input[type="file"] {
+      color: #c6c6d8;
+      font-size: 0.8rem;
+    }
+
     .palette-btn:hover { border-color: #555; }
     .palette-btn.active { border-color: #6c63ff; }
 
@@ -338,6 +392,34 @@
     <div class="control-group">
       <label>Palette</label>
       <div id="palette-swatches"></div>
+    </div>
+
+    <div class="control-group">
+      <label>Custom Palette</label>
+      <div class="palette-editor">
+        <input type="text" id="palette-name" placeholder="Palette name" />
+        <div class="palette-colors">
+          <input type="color" id="palette-color-1" value="#6E6259" />
+          <input type="color" id="palette-color-2" value="#8C8075" />
+          <input type="color" id="palette-color-3" value="#A99D92" />
+          <input type="color" id="palette-color-4" value="#C7BCB1" />
+          <input type="color" id="palette-color-5" value="#DED6CC" />
+          <input type="color" id="palette-color-6" value="#F1ECE4" />
+        </div>
+        <div class="palette-photo">
+          <input type="file" id="palette-photo" accept="image/*" />
+          <canvas id="palette-photo-canvas"></canvas>
+        </div>
+        <button class="btn" id="palette-add">Add Palette</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Colors Used</label>
+      <div class="slider-row">
+        <input type="range" id="palette-count" min="1" max="6" value="6" />
+        <span class="val" id="palette-count-val">6</span>
+      </div>
     </div>
 
     <div class="control-group">

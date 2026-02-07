@@ -103,6 +103,101 @@ export function render(
   ctx.strokeRect(offsetX, offsetY, totalW, totalH);
 }
 
+export function renderToCanvas(
+  grid: QuiltBlock[][],
+  state: AppState,
+  options?: {
+    cellSize?: number;
+    scale?: number;
+    includeGrid?: boolean;
+    includeRepeat?: boolean;
+    background?: string;
+  }
+): HTMLCanvasElement {
+  const rows = grid.length;
+  const cols = grid[0]?.length ?? 0;
+  const cellSize = options?.cellSize ?? 80;
+  const scale = options?.scale ?? 1;
+  const includeGrid = options?.includeGrid ?? true;
+  const includeRepeat = options?.includeRepeat ?? true;
+  const background = options?.background ?? "#1a1a2e";
+
+  const canvas = document.createElement("canvas");
+  if (rows === 0 || cols === 0) {
+    canvas.width = 0;
+    canvas.height = 0;
+    return canvas;
+  }
+
+  const width = cols * cellSize;
+  const height = rows * cellSize;
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  const ctx = canvas.getContext("2d")!;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x = col * cellSize;
+      const y = row * cellSize;
+      drawBlock(ctx, grid[row][col], x, y, cellSize);
+    }
+  }
+
+  if (includeGrid) {
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
+    ctx.lineWidth = 1;
+    for (let row = 0; row <= rows; row++) {
+      const y = row * cellSize;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+    for (let col = 0; col <= cols; col++) {
+      const x = col * cellSize;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+  }
+
+  if (includeRepeat) {
+    const repW = state.repeatWidth > 0 ? Math.min(state.repeatWidth, cols) : 0;
+    const repH = state.repeatHeight > 0 ? Math.min(state.repeatHeight, rows) : 0;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.lineWidth = 2;
+    if (repH > 0) {
+      for (let row = repH; row < rows; row += repH) {
+        const y = row * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+    }
+    if (repW > 0) {
+      for (let col = repW; col < cols; col += repW) {
+        const x = col * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+    }
+  }
+
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, width, height);
+
+  return canvas;
+}
+
 function points(coords: Array<[number, number]>): string {
   return coords.map(([x, y]) => `${x},${y}`).join(" ");
 }

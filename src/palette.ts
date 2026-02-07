@@ -1,6 +1,6 @@
 import type { Palette } from "./types";
 
-export const PALETTES: Palette[] = [
+export const BASE_PALETTES: Palette[] = [
   {
     name: "Earthy",
     colors: ["#8B4513", "#D2691E", "#DEB887", "#F5DEB3", "#556B2F", "#2F4F4F"],
@@ -50,3 +50,7 @@ export const PALETTES: Palette[] = [
     colors: ["#6E6259", "#8C8075", "#A99D92", "#C7BCB1", "#DED6CC", "#F1ECE4"],
   },
 ];
+
+export function getAllPalettes(custom: Palette[]): Palette[] {
+  return [...BASE_PALETTES, ...custom];
+}

@@ -1,6 +1,7 @@
 import { Store } from "./state";
 import { ShapeType, SymmetryMode } from "./types";
-import { PALETTES } from "./palette";
+import { getAllPalettes } from "./palette";
+import type { Palette } from "./types";
 
 const SYMMETRY_MODE_LABELS: { mode: SymmetryMode; label: string }[] = [
   { mode: SymmetryMode.None, label: "None" },
@@ -14,6 +15,12 @@ const SYMMETRY_MODE_LABELS: { mode: SymmetryMode; label: string }[] = [
 
 function $(id: string): HTMLElement {
   return document.getElementById(id)!;
+}
+
+function sanitizePaletteName(name: string, fallbackIndex: number): string {
+  const trimmed = name.trim();
+  if (trimmed.length > 0) return trimmed;
+  return `Custom ${fallbackIndex}`;
 }
 
 export function bindUI(
@@ -136,23 +143,26 @@ export function bindUI(
 
   // Palette swatches
   const palContainer = $("palette-swatches");
-  PALETTES.forEach((palette, idx) => {
-    const btn = document.createElement("button");
-    btn.className = "palette-btn";
-    btn.title = palette.name;
-    // Show swatches as mini colored divs
-    for (const color of palette.colors.slice(0, 5)) {
-      const dot = document.createElement("span");
-      dot.className = "swatch-dot";
-      dot.style.backgroundColor = color;
-      btn.appendChild(dot);
-    }
-    btn.addEventListener("click", () => {
-      store.update({ paletteIndex: idx });
-      updatePaletteSelection(idx);
+  function renderPaletteSwatches(palettes: Palette[], activeIdx: number) {
+    palContainer.innerHTML = "";
+    palettes.forEach((palette, idx) => {
+      const btn = document.createElement("button");
+      btn.className = "palette-btn";
+      btn.title = palette.name;
+      for (const color of palette.colors.slice(0, 5)) {
+        const dot = document.createElement("span");
+        dot.className = "swatch-dot";
+        dot.style.backgroundColor = color;
+        btn.appendChild(dot);
+      }
+      btn.addEventListener("click", () => {
+        store.update({ paletteIndex: idx });
+        updatePaletteSelection(idx);
+      });
+      palContainer.appendChild(btn);
     });
-    palContainer.appendChild(btn);
-  });
+    updatePaletteSelection(activeIdx);
+  }
 
   function updatePaletteSelection(activeIdx: number) {
     const buttons = palContainer.querySelectorAll(".palette-btn");
@@ -160,6 +170,84 @@ export function bindUI(
       btn.classList.toggle("active", i === activeIdx);
     });
   }
+
+  const paletteName = $("palette-name") as HTMLInputElement;
+  const paletteAdd = $("palette-add");
+  const paletteColorInputs = Array.from({ length: 6 }, (_, i) =>
+    $(`palette-color-${i + 1}`) as HTMLInputElement
+  );
+  const palettePhotoInput = $("palette-photo") as HTMLInputElement;
+  const palettePhotoCanvas = $("palette-photo-canvas") as HTMLCanvasElement;
+  const palettePhotoCtx = palettePhotoCanvas.getContext("2d");
+  let activeColorIndex = 0;
+
+  paletteColorInputs.forEach((input, idx) => {
+    input.addEventListener("focus", () => {
+      activeColorIndex = idx;
+    });
+    input.addEventListener("click", () => {
+      activeColorIndex = idx;
+    });
+  });
+
+  function resizePhotoCanvas(width: number, height: number) {
+    palettePhotoCanvas.width = width;
+    palettePhotoCanvas.height = height;
+  }
+
+  function drawPhotoToCanvas(img: HTMLImageElement) {
+    if (!palettePhotoCtx) return;
+    const maxW = 360;
+    const maxH = 200;
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = Math.max(1, Math.floor(img.width * scale));
+    const h = Math.max(1, Math.floor(img.height * scale));
+    resizePhotoCanvas(w, h);
+    palettePhotoCtx.clearRect(0, 0, w, h);
+    palettePhotoCtx.drawImage(img, 0, 0, w, h);
+  }
+
+  palettePhotoInput.addEventListener("change", () => {
+    const file = palettePhotoInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => drawPhotoToCanvas(img);
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  palettePhotoCanvas.addEventListener("click", (event) => {
+    if (!palettePhotoCtx) return;
+    const rect = palettePhotoCanvas.getBoundingClientRect();
+    const x = Math.floor((event.clientX - rect.left) * (palettePhotoCanvas.width / rect.width));
+    const y = Math.floor((event.clientY - rect.top) * (palettePhotoCanvas.height / rect.height));
+    const pixel = palettePhotoCtx.getImageData(x, y, 1, 1).data;
+    const hex = `#${[pixel[0], pixel[1], pixel[2]]
+      .map((v) => v.toString(16).padStart(2, "0"))
+      .join("")}`.toUpperCase();
+    paletteColorInputs[activeColorIndex].value = hex;
+  });
+
+  paletteAdd.addEventListener("click", () => {
+    const colors = paletteColorInputs.map((input) => input.value.toUpperCase());
+    const customPalettes = [...store.get().customPalettes];
+    const name = sanitizePaletteName(paletteName.value, customPalettes.length + 1);
+    customPalettes.push({ name, colors });
+    const palettes = getAllPalettes(customPalettes);
+    store.update({ customPalettes, paletteIndex: palettes.length - 1 });
+    renderPaletteSwatches(palettes, palettes.length - 1);
+    paletteName.value = "";
+  });
+
+  const paletteCount = $("palette-count") as HTMLInputElement;
+  const paletteCountVal = $("palette-count-val");
+  paletteCount.addEventListener("input", () => {
+    paletteCountVal.textContent = paletteCount.value;
+    store.update({ paletteColorCount: Number(paletteCount.value) });
+  });
 
   const exportPngBtn = document.getElementById("export-png");
   if (exportPngBtn && actions?.onExportPng) {
@@ -186,12 +274,14 @@ export function bindUI(
     symSlider.value = String(s.symmetry);
     symVal.textContent = `${s.symmetry}%`;
     updateSymModeSelection(s.symmetryMode);
-    updatePaletteSelection(s.paletteIndex);
+    renderPaletteSwatches(getAllPalettes(s.customPalettes), s.paletteIndex);
+    paletteCount.value = String(s.paletteColorCount);
+    paletteCountVal.textContent = String(s.paletteColorCount);
     renderSeedHistory();
   });
 
   // Trigger initial sync
   updateSymModeSelection(store.get().symmetryMode);
-  updatePaletteSelection(store.get().paletteIndex);
+  renderPaletteSwatches(getAllPalettes(store.get().customPalettes), store.get().paletteIndex);
   renderSeedHistory();
 }

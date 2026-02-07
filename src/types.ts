@@ -33,6 +33,8 @@ export interface AppState {
   enabledShapes: Record<ShapeType, boolean>;
   shapeRatios: Record<ShapeType, number>;
   paletteIndex: number;
+  customPalettes: Palette[];
+  paletteColorCount: number;
   repeatWidth: number;
   repeatHeight: number;
 }
