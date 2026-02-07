@@ -117,6 +117,12 @@
 
     .btn:hover { background: #5a52e0; }
 
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     /* Seed history */
     #seed-history {
       display: flex;
@@ -332,6 +338,14 @@
     <div class="control-group">
       <label>Palette</label>
       <div id="palette-swatches"></div>
+    </div>
+
+    <div class="control-group">
+      <label>Export</label>
+      <div class="btn-row">
+        <button class="btn" id="export-png">Download PNG</button>
+        <button class="btn" id="export-svg">Download SVG</button>
+      </div>
     </div>
   </aside>
 

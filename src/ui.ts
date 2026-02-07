@@ -16,7 +16,10 @@ function $(id: string): HTMLElement {
   return document.getElementById(id)!;
 }
 
-export function bindUI(store: Store): void {
+export function bindUI(
+  store: Store,
+  actions?: { onExportPng?: () => void; onExportSvg?: () => void }
+): void {
   // Grid size sliders
   const gridW = $("grid-width") as HTMLInputElement;
   const gridH = $("grid-height") as HTMLInputElement;
@@ -156,6 +159,16 @@ export function bindUI(store: Store): void {
     buttons.forEach((btn, i) => {
       btn.classList.toggle("active", i === activeIdx);
     });
+  }
+
+  const exportPngBtn = document.getElementById("export-png");
+  if (exportPngBtn && actions?.onExportPng) {
+    exportPngBtn.addEventListener("click", actions.onExportPng);
+  }
+
+  const exportSvgBtn = document.getElementById("export-svg");
+  if (exportSvgBtn && actions?.onExportSvg) {
+    exportSvgBtn.addEventListener("click", actions.onExportSvg);
   }
 
   // Sync UI from initial state
