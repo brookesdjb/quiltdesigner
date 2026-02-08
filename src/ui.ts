@@ -835,8 +835,12 @@ export function bindUI(
   const loadMoreBtn = $("load-more-palettes");
   const shareCurrentBtn = $("share-current-palette-btn");
   
+  const paletteSearchInput = $("palette-search") as HTMLInputElement;
+  
   let sharedPalettesCursor: string | undefined;
   let hasMorePalettes = false;
+  let currentSearchTerm = "";
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   function renderSharedPalette(palette: SharedPalette): HTMLElement {
     const card = document.createElement("div");
@@ -928,14 +932,20 @@ export function bindUI(
     renderPaletteSwatches(getAllPalettes(customPalettes), newPaletteIndex);
   }
 
-  async function loadSharedPalettes(append = false) {
+  async function loadSharedPalettes(append = false, search?: string) {
     if (!append) {
       sharedPalettesList.innerHTML = '<div class="shared-palettes-loading">Loading...</div>';
       sharedPalettesCursor = undefined;
     }
     
+    // Use provided search or current search term
+    const searchTerm = search !== undefined ? search : currentSearchTerm;
+    
     try {
-      const response = await fetchSharedPalettes(sharedPalettesCursor);
+      const response = await fetchSharedPalettes(
+        append ? sharedPalettesCursor : undefined, 
+        searchTerm || undefined
+      );
       
       if (!append) {
         sharedPalettesList.innerHTML = "";
@@ -946,7 +956,10 @@ export function bindUI(
       }
       
       if (response.palettes.length === 0 && !append) {
-        sharedPalettesList.innerHTML = '<div class="shared-palettes-empty">No shared palettes yet. Be the first to share one!</div>';
+        const message = searchTerm 
+          ? `No palettes found for "${searchTerm}"`
+          : "No shared palettes yet. Be the first to share one!";
+        sharedPalettesList.innerHTML = `<div class="shared-palettes-empty">${message}</div>`;
       } else {
         response.palettes.forEach(palette => {
           sharedPalettesList.appendChild(renderSharedPalette(palette));
@@ -965,6 +978,8 @@ export function bindUI(
 
   function openSharedPalettesModal() {
     sharedPalettesModal.classList.add("open");
+    paletteSearchInput.value = "";
+    currentSearchTerm = "";
     loadSharedPalettes();
   }
 
@@ -983,6 +998,20 @@ export function bindUI(
 
   loadMoreBtn.addEventListener("click", () => {
     loadSharedPalettes(true);
+  });
+
+  // Search with debounce
+  paletteSearchInput.addEventListener("input", () => {
+    const value = paletteSearchInput.value.trim();
+    
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+    
+    searchDebounceTimer = setTimeout(() => {
+      currentSearchTerm = value;
+      loadSharedPalettes(false, value);
+    }, 300);
   });
 
   shareCurrentBtn.addEventListener("click", async () => {

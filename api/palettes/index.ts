@@ -27,25 +27,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // List palettes (newest first)
       const limit = Math.min(Number(req.query.limit) || 20, 50);
       const cursor = Number(req.query.cursor) || Date.now();
+      const search = (req.query.search as string || "").toLowerCase().trim();
       
       // Get palette IDs from sorted set (by timestamp, descending)
+      // For search, we need to fetch more and filter
+      const fetchLimit = search ? 100 : limit + 1;
       const ids = await redis.zrange(KEYS.paletteList, cursor, 0, {
         byScore: true,
         rev: true,
-        count: limit + 1,
+        count: fetchLimit,
       });
 
-      const hasMore = ids.length > limit;
-      const paletteIds = ids.slice(0, limit) as string[];
-      
       // Fetch palette data
-      const palettes: SharedPalette[] = [];
-      for (const id of paletteIds) {
+      let palettes: SharedPalette[] = [];
+      for (const id of ids as string[]) {
         const palette = await redis.get<SharedPalette>(KEYS.palette(id));
         if (palette) {
-          palettes.push(palette);
+          // Filter by search term if provided
+          if (search) {
+            if (palette.name.toLowerCase().includes(search)) {
+              palettes.push(palette);
+            }
+          } else {
+            palettes.push(palette);
+          }
         }
+        // Stop if we have enough for non-search queries
+        if (!search && palettes.length > limit) break;
       }
+
+      const hasMore = palettes.length > limit;
+      palettes = palettes.slice(0, limit);
 
       const response: PaletteListResponse = {
         palettes,

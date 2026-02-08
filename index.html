@@ -605,6 +605,31 @@
       margin-bottom: 16px;
     }
 
+    .shared-palettes-search {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .shared-palettes-search input {
+      flex: 1;
+      background: #2a2a4a;
+      border: 1px solid #3a3a5a;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+    }
+
+    .shared-palettes-search input:focus {
+      outline: none;
+      border-color: #6c63ff;
+    }
+
+    .shared-palettes-search input::placeholder {
+      color: #666;
+    }
+
     .shared-palette-card {
       background: #2a2a4a;
       border: 1px solid #3a3a5a;
@@ -624,6 +649,7 @@
     .shared-palette-swatches {
       display: flex;
       gap: 4px;
+      flex-shrink: 0;
     }
 
     .shared-palette-swatch {
@@ -653,11 +679,13 @@
       color: #8888aa;
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .shared-palette-actions {
       display: flex;
       gap: 8px;
+      flex-shrink: 0;
     }
 
     .like-btn {
@@ -689,6 +717,65 @@
 
     .load-more-btn {
       align-self: center;
+    }
+
+    /* Mobile styles for shared palettes */
+    @media (max-width: 500px) {
+      .shared-palettes-modal {
+        padding: 16px;
+        max-height: 90vh;
+      }
+
+      .shared-palettes-modal h2 {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+      }
+
+      .shared-palettes-modal h2 button {
+        width: 100%;
+      }
+
+      .shared-palette-card {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .shared-palette-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .shared-palette-name {
+        font-size: 1rem;
+        margin-bottom: 4px;
+      }
+
+      .shared-palette-swatches {
+        order: 2;
+      }
+
+      .shared-palette-info {
+        order: 1;
+      }
+
+      .shared-palette-actions {
+        order: 1;
+        position: absolute;
+        right: 12px;
+        top: 12px;
+      }
+
+      .shared-palette-card {
+        position: relative;
+      }
+
+      .shared-palette-swatch {
+        width: 32px;
+        height: 32px;
+      }
     }
 
     /* Fabric editor modal */
@@ -1257,6 +1344,9 @@
         <span>🌐 Community Palettes</span>
         <button class="btn btn-secondary" id="share-current-palette-btn">Share Current</button>
       </h2>
+      <div class="shared-palettes-search">
+        <input type="text" id="palette-search" placeholder="Search palettes..." />
+      </div>
       <div class="shared-palettes-list" id="shared-palettes-list">
         <div class="shared-palettes-loading">Loading...</div>
       </div>

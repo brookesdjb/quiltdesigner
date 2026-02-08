@@ -18,9 +18,13 @@ export interface PaletteListResponse {
 
 const API_BASE = "/api";
 
-export async function fetchSharedPalettes(cursor?: string): Promise<PaletteListResponse> {
-  const params = cursor ? `?cursor=${cursor}` : "";
-  const res = await fetch(`${API_BASE}/palettes${params}`);
+export async function fetchSharedPalettes(cursor?: string, search?: string): Promise<PaletteListResponse> {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  if (search) params.set("search", search);
+  const queryString = params.toString();
+  
+  const res = await fetch(`${API_BASE}/palettes${queryString ? `?${queryString}` : ""}`);
   
   if (!res.ok) {
     const text = await res.text();
