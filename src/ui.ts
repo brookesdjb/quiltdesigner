@@ -263,7 +263,37 @@ export function bindUI(
         btn.appendChild(dot);
       }
       btn.addEventListener("click", () => {
-        store.update({ paletteIndex: idx });
+        // Remap border colors to new palette
+        const state = store.get();
+        const oldPalettes = getAllPalettes(state.customPalettes);
+        const oldPalette = oldPalettes[state.paletteIndex % oldPalettes.length];
+        const newPalette = palettes[idx % palettes.length];
+        
+        // Helper to remap a color from old palette index to new palette color
+        const remapColors = (colors: string[]): string[] => {
+          return colors.map((color, i) => {
+            // Find index in old palette
+            const oldIdx = oldPalette.colors.findIndex(c => c.toUpperCase() === color.toUpperCase());
+            // Use same index in new palette, or fallback to position-based
+            const useIdx = oldIdx >= 0 ? oldIdx : i;
+            return newPalette.colors[useIdx % newPalette.colors.length];
+          });
+        };
+        
+        const newOuterColors = remapColors(state.outerBorder?.colors || []);
+        const newSashingColors = remapColors(state.sashingBorder?.colors || []);
+        const newCornerstoneColor = (() => {
+          const color = state.sashingBorder?.cornerstoneColor;
+          if (!color) return newPalette.colors[0];
+          const oldIdx = oldPalette.colors.findIndex(c => c.toUpperCase() === color.toUpperCase());
+          return newPalette.colors[(oldIdx >= 0 ? oldIdx : 0) % newPalette.colors.length];
+        })();
+        
+        store.update({ 
+          paletteIndex: idx,
+          outerBorder: { ...state.outerBorder, colors: newOuterColors },
+          sashingBorder: { ...state.sashingBorder, colors: newSashingColors, cornerstoneColor: newCornerstoneColor }
+        });
         updatePaletteSelection(idx);
       });
       
@@ -580,10 +610,26 @@ export function bindUI(
   // --- Colors used ---
   const paletteCount = $("palette-count") as HTMLInputElement;
   const paletteCountVal = $("palette-count-val");
+  const colorModeMax = $("color-mode-max");
+  const colorModeExact = $("color-mode-exact");
+  
   paletteCount.addEventListener("input", () => {
     paletteCountVal.textContent = paletteCount.value;
     store.update({ paletteColorCount: Number(paletteCount.value) });
   });
+  
+  colorModeMax.addEventListener("click", () => {
+    store.update({ colorCountMode: "max" });
+  });
+  
+  colorModeExact.addEventListener("click", () => {
+    store.update({ colorCountMode: "exact" });
+  });
+  
+  function updateColorModeButtons(mode: "max" | "exact") {
+    colorModeMax.classList.toggle("active", mode === "max");
+    colorModeExact.classList.toggle("active", mode === "exact");
+  }
 
   // --- Border controls ---
   const outerBorderCount = $("outer-border-count") as HTMLInputElement;
@@ -610,6 +656,7 @@ export function bindUI(
     const palettes = getAllPalettes(state.customPalettes);
     const palette = palettes[state.paletteIndex % palettes.length];
     const currentColors = state[borderType].colors;
+    const swatches = palette.swatches || palette.colors;
     
     for (let i = 0; i < count; i++) {
       const picker = document.createElement("div");
@@ -619,25 +666,38 @@ export function bindUI(
       label.textContent = `${i + 1}:`;
       picker.appendChild(label);
       
-      const select = document.createElement("select");
-      palette.colors.forEach((color, idx) => {
-        const option = document.createElement("option");
-        option.value = color;
-        option.textContent = `Color ${idx + 1}`;
-        option.style.backgroundColor = color;
+      // Use swatch buttons instead of select for better fabric preview
+      const swatchRow = document.createElement("div");
+      swatchRow.className = "border-swatch-row";
+      
+      swatches.forEach((swatch, idx) => {
+        const color = palette.colors[idx];
+        const btn = document.createElement("button");
+        btn.className = "border-swatch-btn";
         if (currentColors[i] === color || (!currentColors[i] && idx === i % palette.colors.length)) {
-          option.selected = true;
+          btn.classList.add("active");
         }
-        select.appendChild(option);
+        
+        if (isFabricSwatch(swatch)) {
+          btn.style.backgroundImage = `url(${swatch.dataUrl})`;
+          btn.style.backgroundSize = "cover";
+          btn.title = `Fabric ${idx + 1}`;
+        } else {
+          btn.style.backgroundColor = swatch;
+          btn.title = `Color ${idx + 1}`;
+        }
+        
+        btn.addEventListener("click", () => {
+          const freshState = store.get();
+          const newColors = [...freshState[borderType].colors];
+          newColors[i] = color;
+          store.update({ [borderType]: { ...freshState[borderType], colors: newColors } });
+        });
+        
+        swatchRow.appendChild(btn);
       });
       
-      select.addEventListener("change", () => {
-        const newColors = [...state[borderType].colors];
-        newColors[i] = select.value;
-        store.update({ [borderType]: { ...state[borderType], colors: newColors } });
-      });
-      
-      picker.appendChild(select);
+      picker.appendChild(swatchRow);
       container.appendChild(picker);
     }
   }
@@ -670,26 +730,49 @@ export function bindUI(
     const palettes = getAllPalettes(state.customPalettes);
     const palette = palettes[state.paletteIndex % palettes.length];
     const currentColor = state.sashingBorder?.cornerstoneColor;
+    const swatches = palette.swatches || palette.colors;
     
-    sashingCornerstone.innerHTML = "";
-    palette.colors.forEach((color, idx) => {
-      const option = document.createElement("option");
-      option.value = color;
-      option.textContent = `Color ${idx + 1}`;
-      option.style.backgroundColor = color;
+    // Replace the select with swatch buttons
+    const parent = sashingCornerstone.parentElement;
+    if (!parent) return;
+    
+    // Remove old cornerstone element and create swatch row
+    let swatchRow = parent.querySelector(".cornerstone-swatch-row") as HTMLElement;
+    if (!swatchRow) {
+      swatchRow = document.createElement("div");
+      swatchRow.className = "border-swatch-row cornerstone-swatch-row";
+      sashingCornerstone.style.display = "none";
+      parent.appendChild(swatchRow);
+    }
+    swatchRow.innerHTML = "";
+    
+    swatches.forEach((swatch, idx) => {
+      const color = palette.colors[idx];
+      const btn = document.createElement("button");
+      btn.className = "border-swatch-btn";
       if (currentColor === color || (!currentColor && idx === 0)) {
-        option.selected = true;
+        btn.classList.add("active");
       }
-      sashingCornerstone.appendChild(option);
+      
+      if (isFabricSwatch(swatch)) {
+        btn.style.backgroundImage = `url(${swatch.dataUrl})`;
+        btn.style.backgroundSize = "cover";
+        btn.title = `Fabric ${idx + 1}`;
+      } else {
+        btn.style.backgroundColor = swatch;
+        btn.title = `Color ${idx + 1}`;
+      }
+      
+      btn.addEventListener("click", () => {
+        const freshState = store.get();
+        store.update({ 
+          sashingBorder: { ...freshState.sashingBorder, cornerstoneColor: color } 
+        });
+      });
+      
+      swatchRow.appendChild(btn);
     });
   }
-
-  sashingCornerstone.addEventListener("change", () => {
-    const state = store.get();
-    store.update({
-      sashingBorder: { ...state.sashingBorder, cornerstoneColor: sashingCornerstone.value }
-    });
-  });
 
   outerBorderCount.addEventListener("input", () => {
     const count = Number(outerBorderCount.value);
@@ -766,6 +849,7 @@ export function bindUI(
     renderPaletteSwatches(getAllPalettes(s.customPalettes), s.paletteIndex);
     paletteCount.value = String(s.paletteColorCount);
     paletteCountVal.textContent = String(s.paletteColorCount);
+    updateColorModeButtons(s.colorCountMode || "max");
     
     // Border controls
     const outerCount = s.outerBorder?.lineCount || 0;

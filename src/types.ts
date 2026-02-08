@@ -50,6 +50,7 @@ export interface AppState {
   paletteIndex: number;
   customPalettes: Palette[];
   paletteColorCount: number;
+  colorCountMode: "max" | "exact";  // max = up to N colors, exact = use exactly N colors
   repeatWidth: number;
   repeatHeight: number;
   outerBorder: BorderConfig;

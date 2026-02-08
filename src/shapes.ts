@@ -3,30 +3,82 @@ import { type QuiltBlock, ShapeType, type Swatch, isColorSwatch, isFabricSwatch 
 // Cache for loaded fabric images
 const fabricImageCache = new Map<string, HTMLImageElement>();
 
-// Callback for when fabric images finish loading
+// Cache for canvas patterns (much faster than repeated drawImage)
+const fabricPatternCache = new Map<string, CanvasPattern | null>();
+
+// Callback for when fabric images finish loading (debounced)
 let onFabricLoadedCallback: (() => void) | null = null;
+let pendingCallbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function setOnFabricLoaded(callback: () => void): void {
   onFabricLoadedCallback = callback;
 }
 
+// Debounced callback - wait for all images to load before triggering render
+function scheduleCallback(): void {
+  if (pendingCallbackTimeout) {
+    clearTimeout(pendingCallbackTimeout);
+  }
+  pendingCallbackTimeout = setTimeout(() => {
+    pendingCallbackTimeout = null;
+    if (onFabricLoadedCallback) {
+      onFabricLoadedCallback();
+    }
+  }, 50); // Wait 50ms for batch loading
+}
+
 function getOrLoadImage(dataUrl: string): HTMLImageElement | null {
-  if (fabricImageCache.has(dataUrl)) {
-    return fabricImageCache.get(dataUrl)!;
+  const cached = fabricImageCache.get(dataUrl);
+  if (cached && cached.complete) {
+    return cached;
+  }
+  
+  if (cached) {
+    // Already loading, don't duplicate
+    return null;
   }
   
   // Start loading (will be available on next render)
   const img = new Image();
-  img.src = dataUrl;
+  fabricImageCache.set(dataUrl, img); // Store immediately to prevent duplicate requests
   img.onload = () => {
-    fabricImageCache.set(dataUrl, img);
-    // Trigger re-render when image loads
-    if (onFabricLoadedCallback) {
-      onFabricLoadedCallback();
-    }
+    // Clear pattern cache for this image so it gets recreated
+    fabricPatternCache.delete(dataUrl);
+    // Debounced re-render when image loads
+    scheduleCallback();
   };
+  img.src = dataUrl;
   
   return null;
+}
+
+// Get or create a pattern for a fabric image
+export function getOrCreatePattern(
+  ctx: CanvasRenderingContext2D, 
+  dataUrl: string, 
+  size: number
+): CanvasPattern | null {
+  // Check if we have a cached pattern
+  const cacheKey = `${dataUrl}@${size}`;
+  if (fabricPatternCache.has(cacheKey)) {
+    return fabricPatternCache.get(cacheKey)!;
+  }
+  
+  const img = fabricImageCache.get(dataUrl);
+  if (!img || !img.complete) {
+    return null;
+  }
+  
+  // Create a pattern-sized canvas
+  const patternCanvas = document.createElement("canvas");
+  patternCanvas.width = size;
+  patternCanvas.height = size;
+  const patternCtx = patternCanvas.getContext("2d")!;
+  patternCtx.drawImage(img, 0, 0, size, size);
+  
+  const pattern = ctx.createPattern(patternCanvas, "repeat");
+  fabricPatternCache.set(cacheKey, pattern);
+  return pattern;
 }
 
 // Pre-load fabric images from swatches
@@ -49,12 +101,14 @@ function fillWithSwatch(
     ctx.fillStyle = swatch;
     ctx.fill();
   } else if (isFabricSwatch(swatch)) {
-    const img = fabricImageCache.get(swatch.dataUrl);
-    if (img && img.complete) {
+    // Use pattern for better performance (vs clip + drawImage for each shape)
+    const pattern = getOrCreatePattern(ctx, swatch.dataUrl, size);
+    if (pattern) {
       ctx.save();
-      ctx.clip();
-      // Draw image scaled to block size (fabric-editor uses 200px blocks)
-      ctx.drawImage(img, x, y, size, size);
+      ctx.translate(x, y);
+      ctx.fillStyle = pattern;
+      ctx.translate(-x, -y);
+      ctx.fill();
       ctx.restore();
     } else {
       // Fallback to gray while loading

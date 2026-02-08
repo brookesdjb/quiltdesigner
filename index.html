@@ -66,6 +66,35 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .toggle-row {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      background: #2a2a4a;
+      border: 1px solid #3a3a5a;
+      border-radius: 4px;
+      color: #8888aa;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .toggle-btn:hover {
+      background: #3a3a5a;
+      color: #ccccdd;
+    }
+
+    .toggle-btn.active {
+      background: #6c63ff;
+      border-color: #6c63ff;
+      color: white;
+    }
+
     input[type="range"] {
       -webkit-appearance: none;
       height: 6px;
@@ -722,6 +751,36 @@
       outline: none;
     }
 
+    .border-swatch-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .border-swatch-btn {
+      width: 24px;
+      height: 24px;
+      border: 2px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .border-swatch-btn:hover {
+      border-color: #888;
+    }
+
+    .border-swatch-btn.active {
+      border-color: #6c63ff;
+      box-shadow: 0 0 0 1px #6c63ff;
+    }
+
+    .cornerstone-swatch-row {
+      margin-left: auto;
+    }
+
     .border-width-select {
       flex: 1;
       background: #2a2a4a;
@@ -880,6 +939,10 @@
       <div class="slider-row">
         <input type="range" id="palette-count" min="1" max="6" value="6" />
         <span class="val" id="palette-count-val">6</span>
+      </div>
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="color-mode-max">Up to</button>
+        <button class="toggle-btn" id="color-mode-exact">Exactly</button>
       </div>
     </div>
 

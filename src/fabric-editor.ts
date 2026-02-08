@@ -2,7 +2,8 @@
 // and crops/resamples to a single block size
 
 export interface FabricEditState {
-  sourceImage: HTMLImageElement;
+  sourceImage: HTMLImageElement | HTMLCanvasElement;
+  sourceDataUrl: string; // Resized source for storage
   scale: number;      // 0.1 to 3.0
   rotation: number;   // 0 to 360
   offsetX: number;    // -1 to 1 (relative to block)
@@ -14,7 +15,8 @@ export interface FabricEditorCallbacks {
   onCancel: () => void;
 }
 
-const BLOCK_SIZE = 200; // Preview block size in pixels
+const BLOCK_SIZE = 250; // Output size in pixels
+const MAX_SOURCE_SIZE = 512; // Max size for source image (for memory/performance)
 
 export function createFabricEditor(
   container: HTMLElement,
@@ -185,20 +187,39 @@ export function createFabricEditor(
   confirmBtn.addEventListener("click", () => {
     if (!state) return;
     const cropped = generateCroppedImage();
-    const source = state.sourceImage.src;
-    callbacks.onConfirm(cropped, source);
+    callbacks.onConfirm(cropped, state.sourceDataUrl);
   });
 
   cancelBtn.addEventListener("click", () => {
     callbacks.onCancel();
   });
 
+  // Resize image if too large (for memory/performance)
+  function resizeImageIfNeeded(img: HTMLImageElement): { element: HTMLImageElement | HTMLCanvasElement; dataUrl: string } {
+    const maxDim = Math.max(img.width, img.height);
+    if (maxDim <= MAX_SOURCE_SIZE) {
+      return { element: img, dataUrl: img.src };
+    }
+    
+    const scale = MAX_SOURCE_SIZE / maxDim;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return { element: canvas, dataUrl: canvas.toDataURL("image/jpeg", 0.85) };
+  }
+
   return {
     loadImage(dataUrl: string) {
       const img = new Image();
       img.onload = () => {
+        // Resize if needed for performance
+        const { element: source, dataUrl: sourceDataUrl } = resizeImageIfNeeded(img);
+        
         state = {
-          sourceImage: img,
+          sourceImage: source,
+          sourceDataUrl,
           scale: 1,
           rotation: 0,
           offsetX: 0,
@@ -206,7 +227,7 @@ export function createFabricEditor(
         };
         
         // Auto-scale to fit block
-        const fitScale = Math.max(BLOCK_SIZE / img.width, BLOCK_SIZE / img.height);
+        const fitScale = Math.max(BLOCK_SIZE / source.width, BLOCK_SIZE / source.height);
         state.scale = fitScale;
         scaleSlider.value = String(Math.round(fitScale * 100));
         scaleVal.textContent = `${Math.round(fitScale * 100)}%`;

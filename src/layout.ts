@@ -254,6 +254,51 @@ function getSymmetrySource(
   }
 }
 
+// Ensure all colors are used in the tile (for exact mode)
+// Only modifies canonical (source) cells - cells that don't derive from another via symmetry
+function ensureAllColorsUsed(
+  tile: QuiltBlock[][], 
+  paletteColors: string[], 
+  rng: SeededRandom,
+  symmetryMode: SymmetryMode
+): void {
+  const tileH = tile.length;
+  const tileW = tile[0]?.length || 0;
+  
+  // Find which colors are used in canonical cells only
+  const usedColors = new Set<string>();
+  const canonicalPositions: { row: number; col: number; colorIdx: number }[] = [];
+  
+  for (let row = 0; row < tileH; row++) {
+    for (let col = 0; col < tileW; col++) {
+      // Check if this is a canonical cell (no symmetry source)
+      const source = getSymmetrySource(row, col, tileW, tileH, symmetryMode);
+      if (source) continue; // Skip derived cells
+      
+      const block = tile[row][col];
+      for (let colorIdx = 0; colorIdx < block.colors.length; colorIdx++) {
+        usedColors.add(block.colors[colorIdx].toUpperCase());
+        canonicalPositions.push({ row, col, colorIdx });
+      }
+    }
+  }
+  
+  // Find unused colors
+  const unusedColors = paletteColors.filter(c => !usedColors.has(c.toUpperCase()));
+  if (unusedColors.length === 0) return;
+  
+  // Shuffle canonical positions and assign unused colors
+  for (let i = canonicalPositions.length - 1; i > 0; i--) {
+    const j = Math.floor(rng.next() * (i + 1));
+    [canonicalPositions[i], canonicalPositions[j]] = [canonicalPositions[j], canonicalPositions[i]];
+  }
+  
+  for (let i = 0; i < unusedColors.length && i < canonicalPositions.length; i++) {
+    const pos = canonicalPositions[i];
+    tile[pos.row][pos.col].colors[pos.colorIdx] = unusedColors[i];
+  }
+}
+
 function generateTile(
   tileW: number,
   tileH: number,
@@ -261,12 +306,18 @@ function generateTile(
   symmetryMode: SymmetryMode,
   rng: SeededRandom,
   pool: ShapeType[],
-  paletteColors: string[]
+  paletteColors: string[],
+  exactColors: boolean
 ): QuiltBlock[][] {
   // First pass: fill everything randomly
   const tile: QuiltBlock[][] = Array.from({ length: tileH }, () =>
     Array.from({ length: tileW }, () => randomBlock(rng, pool, paletteColors))
   );
+
+  // If exact colors mode, ensure all colors are used in canonical cells BEFORE symmetry
+  if (exactColors) {
+    ensureAllColorsUsed(tile, paletteColors, rng, symmetryMode);
+  }
 
   if (symmetryMode === SymmetryMode.None) return tile;
 
@@ -294,11 +345,12 @@ export function generateGrid(state: AppState): QuiltBlock[][] {
   const paletteColors = palette.colors.slice(0, colorCount);
   const pool = buildWeightedShapePool(state);
   const { gridWidth, gridHeight, symmetry, symmetryMode, repeatWidth, repeatHeight } = state;
+  const exactColors = state.colorCountMode === "exact";
 
   const tileW = repeatWidth > 0 ? Math.min(repeatWidth, gridWidth) : gridWidth;
   const tileH = repeatHeight > 0 ? Math.min(repeatHeight, gridHeight) : gridHeight;
 
-  const tile = generateTile(tileW, tileH, symmetry, symmetryMode, rng, pool, paletteColors);
+  const tile = generateTile(tileW, tileH, symmetry, symmetryMode, rng, pool, paletteColors, exactColors);
 
   const grid: QuiltBlock[][] = Array.from({ length: gridHeight }, (_, row) =>
     Array.from({ length: gridWidth }, (_, col) => tile[row % tileH][col % tileW])

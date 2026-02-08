@@ -1,6 +1,6 @@
 import type { AppState, QuiltBlock } from "./types";
 import { ShapeType, isFabricSwatch, isColorSwatch } from "./types";
-import { drawBlock, type ColorToSwatchMap } from "./shapes";
+import { drawBlock, type ColorToSwatchMap, getOrCreatePattern } from "./shapes";
 
 // Helper to fill a rectangle with either a color or fabric pattern
 function fillRectWithSwatch(
@@ -11,26 +11,17 @@ function fillRectWithSwatch(
   y: number,
   width: number,
   height: number,
-  fabricCache: Map<string, HTMLImageElement>
+  _fabricCache: Map<string, HTMLImageElement> // kept for signature compatibility
 ): void {
   const swatch = colorMap?.get(color.toUpperCase());
   
   if (swatch && isFabricSwatch(swatch)) {
-    const img = fabricCache.get(swatch.dataUrl);
-    if (img && img.complete) {
-      // Tile the fabric image
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x, y, width, height);
-      ctx.clip();
-      
-      const patternSize = 80; // Standard block size for fabric pattern
-      for (let py = y; py < y + height; py += patternSize) {
-        for (let px = x; px < x + width; px += patternSize) {
-          ctx.drawImage(img, px, py, patternSize, patternSize);
-        }
-      }
-      ctx.restore();
+    // Use pattern for better performance
+    const patternSize = 80;
+    const pattern = getOrCreatePattern(ctx, swatch.dataUrl, patternSize);
+    if (pattern) {
+      ctx.fillStyle = pattern;
+      ctx.fillRect(x, y, width, height);
       return;
     }
   }

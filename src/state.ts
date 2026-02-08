@@ -72,6 +72,7 @@ export function defaultState(): AppState {
     paletteIndex: 0,
     customPalettes: [],
     paletteColorCount: 6,
+    colorCountMode: "max",
     repeatWidth: 4,
     repeatHeight: 4,
     outerBorder: { lineCount: 0, colors: [], widthFraction: 1 },

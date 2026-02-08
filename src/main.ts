@@ -7,6 +7,7 @@ import type { Palette } from "./types";
 import { getAllPalettes } from "./palette";
 import { preloadFabricSwatches, setOnFabricLoaded, type ColorToSwatchMap } from "./shapes";
 import { embedInPng, embedInSvg, loadCartridgeFromFile } from "./cartridge";
+import { addSpriteSheet } from "./spritesheet";
 
 function buildColorMap(state: typeof store extends { get: () => infer S } ? S : never): ColorToSwatchMap {
   const palettes = getAllPalettes(state.customPalettes);
@@ -94,14 +95,18 @@ async function shareOrDownload(blob: Blob, fileName: string) {
 async function downloadPng() {
   const state = store.get();
   const colorMap = buildColorMap(state);
-  const exportCanvas = renderToCanvas(currentGrid, state, { cellSize: 80, scale: 2, colorMap });
+  const baseCanvas = renderToCanvas(currentGrid, state, { cellSize: 80, scale: 2, colorMap });
+  
+  // Add sprite sheet strip with fabric swatches
+  const { canvas: exportCanvas, sprites } = addSpriteSheet(baseCanvas, state);
+  
   let blob = await new Promise<Blob | null>((resolve) =>
     exportCanvas.toBlob(resolve, "image/png")
   );
   if (!blob) return;
   
-  // Embed cartridge data (settings) in PNG metadata
-  blob = await embedInPng(blob, state);
+  // Embed cartridge data (settings) in PNG metadata, with sprite info
+  blob = await embedInPng(blob, state, sprites);
   
   await shareOrDownload(
     blob,
@@ -212,6 +217,10 @@ async function downloadCuttingList() {
   );
 }
 
+// Debounced redraw to prevent render pile-up
+let redrawTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingRedraw = false;
+
 function redraw() {
   const state = store.get();
   const rawGrid = generateGrid(state);
@@ -221,16 +230,40 @@ function redraw() {
   render(canvas, currentGrid, state, colorMap);
 }
 
-// Re-render when fabric images finish loading
-setOnFabricLoaded(() => {
+function scheduleRedraw() {
+  if (redrawTimeout) {
+    pendingRedraw = true;
+    return;
+  }
+  
   redraw();
+  
+  redrawTimeout = setTimeout(() => {
+    redrawTimeout = null;
+    if (pendingRedraw) {
+      pendingRedraw = false;
+      scheduleRedraw();
+    }
+  }, 16); // ~60fps max
+}
+
+// Re-render (just paint, don't regenerate grid) when fabric images finish loading
+function repaint() {
+  const state = store.get();
+  const colorMap = buildColorMap(state);
+  render(canvas, currentGrid, state, colorMap);
+}
+
+// Re-render when fabric images finish loading (just repaint, grid hasn't changed)
+setOnFabricLoaded(() => {
+  repaint();
 });
 
 // Re-render on any state change
-store.subscribe(redraw);
+store.subscribe(scheduleRedraw);
 
-// Re-render on resize
-window.addEventListener("resize", redraw);
+// Re-render on resize (just repaint)
+window.addEventListener("resize", repaint);
 
 // Wire up UI controls
 bindUI(store, { onExportPng: downloadPng, onExportSvg: downloadSvg, onExportCuttingList: downloadCuttingList });
