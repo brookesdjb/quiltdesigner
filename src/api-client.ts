@@ -3,6 +3,7 @@
 export interface User {
   id: string;
   name: string;
+  displayName: string;
   email: string;
   picture?: string;
 }
@@ -117,4 +118,21 @@ export function getLoginUrl(): string {
 
 export function getLogoutUrl(): string {
   return `${API_BASE}/auth/logout`;
+}
+
+export async function updateDisplayName(displayName: string): Promise<User> {
+  const res = await fetch(`${API_BASE}/auth/profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ displayName }),
+  });
+  
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || "Failed to update profile");
+  }
+  
+  const data = await res.json();
+  return data.user;
 }

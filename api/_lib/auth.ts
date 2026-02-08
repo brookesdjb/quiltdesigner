@@ -4,7 +4,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 export interface User {
   id: string;
   email: string;
-  name: string;
+  name: string;           // Full name from OAuth
+  displayName?: string;   // User-chosen nickname (defaults to name)
   picture?: string;
   provider: "google";
   createdAt: number;

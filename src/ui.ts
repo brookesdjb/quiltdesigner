@@ -4,7 +4,7 @@ import { getAllPalettes, BASE_PALETTES } from "./palette";
 import { loadGenerations, saveGeneration, generateName } from "./generations";
 import { createFabricEditor } from "./fabric-editor";
 import type { Palette } from "./types";
-import { fetchSharedPalettes, sharePalette, likePalette, formatTimeAgo, getCurrentUser, getLoginUrl, getLogoutUrl, type SharedPalette, type User } from "./api-client";
+import { fetchSharedPalettes, sharePalette, likePalette, formatTimeAgo, getCurrentUser, getLoginUrl, updateDisplayName, type SharedPalette, type User } from "./api-client";
 
 const SYMMETRY_MODE_LABELS: { mode: SymmetryMode; label: string }[] = [
   { mode: SymmetryMode.None, label: "None" },
@@ -851,8 +851,9 @@ export function bindUI(
 
   function updateAuthUI() {
     if (currentUser) {
-      shareCurrentBtn.innerHTML = `Share Current <small style="opacity:0.7">(${currentUser.name.split(' ')[0]})</small>`;
-      shareCurrentBtn.title = `Signed in as ${currentUser.name}. Click to share, or visit ${getLogoutUrl()} to sign out.`;
+      const shortName = currentUser.displayName.split(' ')[0];
+      shareCurrentBtn.innerHTML = `Share as <strong>${shortName}</strong>`;
+      shareCurrentBtn.title = `Sharing as "${currentUser.displayName}". Click to share a palette.`;
     } else {
       shareCurrentBtn.textContent = "Sign in to Share";
       shareCurrentBtn.title = "Sign in with Google to share palettes";
@@ -1038,6 +1039,26 @@ export function bindUI(
     if (!currentUser) {
       window.location.href = getLoginUrl();
       return;
+    }
+    
+    // First time? Let them set a display name
+    const isFirstShare = currentUser.displayName === currentUser.name;
+    if (isFirstShare) {
+      const nickname = prompt(
+        "Choose a name to publish under (this will be shown with your shared palettes):",
+        currentUser.displayName
+      );
+      if (nickname === null) return; // Cancelled
+      
+      if (nickname.trim() && nickname.trim() !== currentUser.displayName) {
+        try {
+          currentUser = await updateDisplayName(nickname.trim());
+          updateAuthUI();
+        } catch (err) {
+          alert("Failed to update name: " + (err as Error).message);
+          return;
+        }
+      }
     }
     
     const state = store.get();

@@ -20,6 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       user: {
         id: session.user.id,
         name: session.user.name,
+        displayName: session.user.displayName || session.user.name,
         email: session.user.email,
         picture: session.user.picture,
       },

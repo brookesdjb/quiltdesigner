@@ -109,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         name: body.name.trim(),
         colors: body.colors,
         userId: session.user.id,
-        userName: session.user.name,
+        userName: session.user.displayName || session.user.name,
         hasFabrics: !!body.fabricDataUrls && body.fabricDataUrls.length > 0,
         fabricDataUrls: body.fabricDataUrls,
         createdAt: now,
