@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { redis, KEYS } from "../_lib/redis";
-import type { SharedPalette, CreatePaletteRequest, PaletteListResponse } from "../_lib/types";
+import { redis, KEYS } from "../_lib/redis.js";
+import type { SharedPalette, CreatePaletteRequest, PaletteListResponse } from "../_lib/types.js";
 
 // Generate a short unique ID
 function generateId(): string {

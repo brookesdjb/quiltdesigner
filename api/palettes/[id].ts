@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { redis, KEYS } from "../_lib/redis";
-import type { SharedPalette } from "../_lib/types";
+import { redis, KEYS } from "../_lib/redis.js";
+import type { SharedPalette } from "../_lib/types.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
