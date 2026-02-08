@@ -120,6 +120,39 @@ export function getLogoutUrl(): string {
   return `${API_BASE}/auth/logout`;
 }
 
+// User palettes (cloud sync)
+export interface SavedPalette {
+  name: string;
+  colors: string[];
+  swatches?: Array<string | { type: "fabric"; dataUrl: string; sourceUrl?: string }>;
+}
+
+export async function getUserPalettes(): Promise<SavedPalette[]> {
+  const res = await fetch(`${API_BASE}/user/palettes`, {
+    credentials: "include",
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.palettes || [];
+}
+
+export async function saveUserPalettes(
+  palettes: SavedPalette[], 
+  merge = false
+): Promise<SavedPalette[]> {
+  const res = await fetch(`${API_BASE}/user/palettes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ palettes, merge }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to save palettes");
+  }
+  const data = await res.json();
+  return data.palettes;
+}
+
 export async function updateDisplayName(displayName: string): Promise<User> {
   const res = await fetch(`${API_BASE}/auth/profile`, {
     method: "POST",

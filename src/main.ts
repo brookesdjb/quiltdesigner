@@ -9,9 +9,13 @@ import { preloadFabricSwatches, setOnFabricLoaded, type ColorToSwatchMap } from 
 import { embedInPng, embedInSvg, loadCartridgeFromFile } from "./cartridge";
 import { addSpriteSheet } from "./spritesheet";
 import { inject } from "@vercel/analytics";
+import { getCurrentUser, getUserPalettes, saveUserPalettes, type User } from "./api-client";
 
 // Initialize Vercel Analytics
 inject();
+
+// Track current user for cloud sync
+let currentUser: User | null = null;
 
 function buildColorMap(state: typeof store extends { get: () => infer S } ? S : never): ColorToSwatchMap {
   const palettes = getAllPalettes(state.customPalettes);
@@ -58,16 +62,79 @@ function loadCustomPalettes(): Palette[] {
   }
 }
 
+// Load palettes from localStorage initially
 store.update({ customPalettes: loadCustomPalettes() });
 
+// Track changes for saving
 let lastCustomPalettes = "";
-store.subscribe(() => {
-  const json = JSON.stringify(store.get().customPalettes);
-  if (json !== lastCustomPalettes) {
+let savingToCloud = false;
+
+// Save palettes (to localStorage or cloud depending on auth)
+async function savePalettes(palettes: Palette[]) {
+  const json = JSON.stringify(palettes);
+  if (json === lastCustomPalettes) return;
+  lastCustomPalettes = json;
+  
+  if (currentUser) {
+    // Save to cloud
+    if (!savingToCloud) {
+      savingToCloud = true;
+      try {
+        await saveUserPalettes(palettes);
+      } catch (err) {
+        console.error("Failed to save to cloud:", err);
+      }
+      savingToCloud = false;
+    }
+  } else {
+    // Save to localStorage
     localStorage.setItem(CUSTOM_PALETTES_KEY, json);
-    lastCustomPalettes = json;
   }
+}
+
+store.subscribe(() => {
+  savePalettes(store.get().customPalettes);
 });
+
+// Initialize auth and sync palettes
+async function initAuthAndSync() {
+  try {
+    currentUser = await getCurrentUser();
+    
+    if (currentUser) {
+      // Check for auth_success (just logged in)
+      const params = new URLSearchParams(window.location.search);
+      const justLoggedIn = params.get("auth_success") === "1";
+      
+      // Clean up URL
+      if (justLoggedIn) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      
+      // Load palettes from cloud
+      const cloudPalettes = await getUserPalettes();
+      const localPalettes = loadCustomPalettes();
+      
+      if (justLoggedIn && localPalettes.length > 0) {
+        // Merge local palettes to cloud
+        const merged = await saveUserPalettes(localPalettes, true);
+        store.update({ customPalettes: merged });
+        // Clear localStorage since we've merged
+        localStorage.removeItem(CUSTOM_PALETTES_KEY);
+        console.log(`Merged ${localPalettes.length} local palettes to cloud`);
+      } else if (cloudPalettes.length > 0) {
+        // Use cloud palettes
+        store.update({ customPalettes: cloudPalettes });
+        lastCustomPalettes = JSON.stringify(cloudPalettes);
+      }
+    }
+  } catch (err) {
+    console.error("Auth/sync error:", err);
+  }
+}
+
+// Run auth init
+initAuthAndSync();
 
 const isIos = /iPad|iPhone|iPod/i.test(navigator.userAgent);
 const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
