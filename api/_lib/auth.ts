@@ -137,11 +137,23 @@ export async function deleteSession(req: VercelRequest): Promise<void> {
   }
 }
 
+// Get the base URL for redirects
+function getBaseUrl(): string {
+  // Use explicit APP_URL if set, otherwise try VERCEL_URL, fallback to localhost
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return "http://localhost:3000";
+}
+
 // Google OAuth helpers
 export function getGoogleAuthUrl(): string {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
-    redirect_uri: `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/auth/callback/google`,
+    redirect_uri: `${getBaseUrl()}/api/auth/callback/google`,
     response_type: "code",
     scope: "openid email profile",
     access_type: "offline",
@@ -156,7 +168,7 @@ export async function exchangeGoogleCode(code: string): Promise<{
   name: string;
   picture?: string;
 } | null> {
-  const redirectUri = `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/auth/callback/google`;
+  const redirectUri = `${getBaseUrl()}/api/auth/callback/google`;
   
   // Exchange code for tokens
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
