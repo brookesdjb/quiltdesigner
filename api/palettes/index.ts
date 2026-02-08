@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { redis, KEYS } from "../_lib/redis.js";
 import type { SharedPalette, CreatePaletteRequest, PaletteListResponse } from "../_lib/types.js";
+import { getSession } from "../_lib/auth.js";
 
 // Generate a short unique ID
 function generateId(): string {
@@ -71,6 +72,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
+      // Require authentication
+      const session = await getSession(req);
+      if (!session) {
+        return res.status(401).json({ error: "Please sign in to share palettes" });
+      }
+      
       const body = req.body as CreatePaletteRequest;
       
       // Validate
@@ -101,6 +108,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         id,
         name: body.name.trim(),
         colors: body.colors,
+        userId: session.user.id,
+        userName: session.user.name,
         hasFabrics: !!body.fabricDataUrls && body.fabricDataUrls.length > 0,
         fabricDataUrls: body.fabricDataUrls,
         createdAt: now,

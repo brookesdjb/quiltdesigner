@@ -1,4 +1,11 @@
-// API client for shared palettes
+// API client for shared palettes and auth
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+}
 
 export interface SharedPalette {
   id: string;
@@ -8,6 +15,8 @@ export interface SharedPalette {
   fabricDataUrls?: string[];
   createdAt: number;
   likes: number;
+  userId?: string;
+  userName?: string;
 }
 
 export interface PaletteListResponse {
@@ -86,4 +95,26 @@ export function formatTimeAgo(timestamp: number): string {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
   return new Date(timestamp).toLocaleDateString();
+}
+
+// Auth functions
+export async function getCurrentUser(): Promise<User | null> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.user || null;
+  } catch {
+    return null;
+  }
+}
+
+export function getLoginUrl(): string {
+  return `${API_BASE}/auth/login/google`;
+}
+
+export function getLogoutUrl(): string {
+  return `${API_BASE}/auth/logout`;
 }

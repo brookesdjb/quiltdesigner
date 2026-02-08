@@ -4,7 +4,7 @@ import { getAllPalettes, BASE_PALETTES } from "./palette";
 import { loadGenerations, saveGeneration, generateName } from "./generations";
 import { createFabricEditor } from "./fabric-editor";
 import type { Palette } from "./types";
-import { fetchSharedPalettes, sharePalette, likePalette, formatTimeAgo, type SharedPalette } from "./api-client";
+import { fetchSharedPalettes, sharePalette, likePalette, formatTimeAgo, getCurrentUser, getLoginUrl, getLogoutUrl, type SharedPalette, type User } from "./api-client";
 
 const SYMMETRY_MODE_LABELS: { mode: SymmetryMode; label: string }[] = [
   { mode: SymmetryMode.None, label: "None" },
@@ -841,6 +841,23 @@ export function bindUI(
   let hasMorePalettes = false;
   let currentSearchTerm = "";
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let currentUser: User | null = null;
+
+  // Check auth state
+  async function checkAuth() {
+    currentUser = await getCurrentUser();
+    updateAuthUI();
+  }
+
+  function updateAuthUI() {
+    if (currentUser) {
+      shareCurrentBtn.innerHTML = `Share Current <small style="opacity:0.7">(${currentUser.name.split(' ')[0]})</small>`;
+      shareCurrentBtn.title = `Signed in as ${currentUser.name}. Click to share, or visit ${getLogoutUrl()} to sign out.`;
+    } else {
+      shareCurrentBtn.textContent = "Sign in to Share";
+      shareCurrentBtn.title = "Sign in with Google to share palettes";
+    }
+  }
 
   function renderSharedPalette(palette: SharedPalette): HTMLElement {
     const card = document.createElement("div");
@@ -865,6 +882,7 @@ export function bindUI(
     info.innerHTML = `
       <div class="shared-palette-name">${palette.name}</div>
       <div class="shared-palette-meta">
+        ${palette.userName ? `<span>by ${palette.userName}</span>` : ''}
         <span>${formatTimeAgo(palette.createdAt)}</span>
         <span>❤️ ${palette.likes}</span>
         ${palette.hasFabrics ? '<span>🧵 Fabrics</span>' : ''}
@@ -980,6 +998,7 @@ export function bindUI(
     sharedPalettesModal.classList.add("open");
     paletteSearchInput.value = "";
     currentSearchTerm = "";
+    checkAuth(); // Update auth state
     loadSharedPalettes();
   }
 
@@ -1015,6 +1034,12 @@ export function bindUI(
   });
 
   shareCurrentBtn.addEventListener("click", async () => {
+    // Check if logged in
+    if (!currentUser) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    
     const state = store.get();
     const palettes = getAllPalettes(state.customPalettes);
     const currentPalette = palettes[state.paletteIndex % palettes.length];
