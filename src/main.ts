@@ -8,6 +8,10 @@ import { getAllPalettes } from "./palette";
 import { preloadFabricSwatches, setOnFabricLoaded, type ColorToSwatchMap } from "./shapes";
 import { embedInPng, embedInSvg, loadCartridgeFromFile } from "./cartridge";
 import { addSpriteSheet } from "./spritesheet";
+import { inject } from "@vercel/analytics";
+
+// Initialize Vercel Analytics
+inject();
 
 function buildColorMap(state: typeof store extends { get: () => infer S } ? S : never): ColorToSwatchMap {
   const palettes = getAllPalettes(state.customPalettes);
