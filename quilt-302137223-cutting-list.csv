@@ -1,0 +1,28 @@
+# Cutting List for Quilt Design
+# Seed: 302137223
+# Grid: 8 x 8
+# Palette: Earthy
+# Color Key:
+#   1 = #8B4513
+#   2 = #D2691E
+#   3 = #DEB887
+#   4 = #F5DEB3
+#   5 = #556B2F
+#   6 = #2F4F4F
+
+Shape,Colors,Rotation,Quantity
+hst,5,6,180°,4
+hst,5,6,270°,4
+hst,5,6,90°,4
+hst,5,6,0°,4
+qst,5,2,4,3,180°,4
+qst,5,2,4,3,270°,4
+qst,5,2,4,3,90°,4
+qst,5,2,4,3,0°,4
+square,2,270°,8
+square,2,0°,8
+square,2,180°,8
+square,2,90°,8
+
+# Total pieces: 64
+# Unique variants: 12

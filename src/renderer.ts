@@ -1,11 +1,64 @@
 import type { AppState, QuiltBlock } from "./types";
-import { ShapeType } from "./types";
-import { drawBlock } from "./shapes";
+import { ShapeType, isFabricSwatch, isColorSwatch } from "./types";
+import { drawBlock, type ColorToSwatchMap } from "./shapes";
+
+// Helper to fill a rectangle with either a color or fabric pattern
+function fillRectWithSwatch(
+  ctx: CanvasRenderingContext2D,
+  color: string,
+  colorMap: ColorToSwatchMap | undefined,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fabricCache: Map<string, HTMLImageElement>
+): void {
+  const swatch = colorMap?.get(color.toUpperCase());
+  
+  if (swatch && isFabricSwatch(swatch)) {
+    const img = fabricCache.get(swatch.dataUrl);
+    if (img && img.complete) {
+      // Tile the fabric image
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, width, height);
+      ctx.clip();
+      
+      const patternSize = 80; // Standard block size for fabric pattern
+      for (let py = y; py < y + height; py += patternSize) {
+        for (let px = x; px < x + width; px += patternSize) {
+          ctx.drawImage(img, px, py, patternSize, patternSize);
+        }
+      }
+      ctx.restore();
+      return;
+    }
+  }
+  
+  // Fallback to solid color
+  ctx.fillStyle = (swatch && isColorSwatch(swatch)) ? swatch : color;
+  ctx.fillRect(x, y, width, height);
+}
+
+// Simple fabric image cache for borders
+const borderFabricCache = new Map<string, HTMLImageElement>();
+
+function ensureFabricLoaded(dataUrl: string): void {
+  if (!borderFabricCache.has(dataUrl)) {
+    const img = new Image();
+    img.src = dataUrl;
+    img.onload = () => {
+      borderFabricCache.set(dataUrl, img);
+    };
+    borderFabricCache.set(dataUrl, img); // Store even before loaded to prevent duplicate requests
+  }
+}
 
 export function render(
   canvas: HTMLCanvasElement,
   grid: QuiltBlock[][],
-  state: AppState
+  state: AppState,
+  colorMap?: ColorToSwatchMap
 ): void {
   const ctx = canvas.getContext("2d")!;
 
@@ -31,25 +84,151 @@ export function render(
 
   const rows = grid.length;
   const cols = grid[0].length;
-
-  // Calculate cell size to fit canvas with padding
+  
+  // Border configuration
+  const outerLineCount = state.outerBorder?.lineCount || 0;
+  const sashingLineCount = state.sashingBorder?.lineCount || 0;
+  const outerWidthFrac = state.outerBorder?.widthFraction || 0.25;
+  const sashingWidthFrac = state.sashingBorder?.widthFraction || 0.25;
+  
+  const repW = state.repeatWidth > 0 ? Math.min(state.repeatWidth, cols) : cols;
+  const repH = state.repeatHeight > 0 ? Math.min(state.repeatHeight, rows) : rows;
+  
+  // Count sashing gaps
+  const sashingGapsX = repW > 0 ? Math.floor((cols - 1) / repW) : 0;
+  const sashingGapsY = repH > 0 ? Math.floor((rows - 1) / repH) : 0;
+  
+  // Calculate cell size first (approximate), then adjust for borders
   const padding = 20;
-  const availW = displayWidth - padding * 2;
-  const availH = displayHeight - padding * 2;
+  const approxCellSize = Math.floor(Math.min(
+    (displayWidth - padding * 2) / (cols + outerLineCount * outerWidthFrac * 2 + sashingGapsX * sashingLineCount * sashingWidthFrac),
+    (displayHeight - padding * 2) / (rows + outerLineCount * outerWidthFrac * 2 + sashingGapsY * sashingLineCount * sashingWidthFrac)
+  ));
+  
+  // Border widths based on cell size
+  const outerLineWidth = Math.round(approxCellSize * outerWidthFrac);
+  const sashingLineWidth = Math.round(approxCellSize * sashingWidthFrac);
+  
+  const totalOuterBorder = outerLineCount * outerLineWidth;
+  const totalSashingX = sashingGapsX * sashingLineCount * sashingLineWidth;
+  const totalSashingY = sashingGapsY * sashingLineCount * sashingLineWidth;
+
+  // Recalculate cell size with actual border widths
+  const availW = displayWidth - padding * 2 - totalOuterBorder * 2 - totalSashingX;
+  const availH = displayHeight - padding * 2 - totalOuterBorder * 2 - totalSashingY;
   const cellSize = Math.floor(Math.min(availW / cols, availH / rows));
 
-  // Center the grid
-  const totalW = cellSize * cols;
-  const totalH = cellSize * rows;
-  const offsetX = Math.floor((displayWidth - totalW) / 2);
-  const offsetY = Math.floor((displayHeight - totalH) / 2);
+  // Total dimensions
+  const gridW = cellSize * cols + totalSashingX;
+  const gridH = cellSize * rows + totalSashingY;
+  const totalW = gridW + totalOuterBorder * 2;
+  const totalH = gridH + totalOuterBorder * 2;
+  
+  const startX = Math.floor((displayWidth - totalW) / 2);
+  const startY = Math.floor((displayHeight - totalH) / 2);
+
+  // Pre-load fabric images for borders
+  if (colorMap) {
+    state.outerBorder?.colors?.forEach(c => {
+      const swatch = colorMap.get(c.toUpperCase());
+      if (swatch && isFabricSwatch(swatch)) ensureFabricLoaded(swatch.dataUrl);
+    });
+    state.sashingBorder?.colors?.forEach(c => {
+      const swatch = colorMap.get(c.toUpperCase());
+      if (swatch && isFabricSwatch(swatch)) ensureFabricLoaded(swatch.dataUrl);
+    });
+    const cornerColor = state.sashingBorder?.cornerstoneColor;
+    if (cornerColor) {
+      const swatch = colorMap.get(cornerColor.toUpperCase());
+      if (swatch && isFabricSwatch(swatch)) ensureFabricLoaded(swatch.dataUrl);
+    }
+  }
+
+  // Draw outer border
+  if (outerLineCount > 0 && state.outerBorder?.colors) {
+    for (let i = 0; i < outerLineCount; i++) {
+      const color = state.outerBorder.colors[i] || "#888888";
+      const offset = i * outerLineWidth;
+      const w = totalW - offset * 2;
+      const h = totalH - offset * 2;
+      
+      // Top
+      fillRectWithSwatch(ctx, color, colorMap, startX + offset, startY + offset, w, outerLineWidth, borderFabricCache);
+      // Bottom
+      fillRectWithSwatch(ctx, color, colorMap, startX + offset, startY + totalH - offset - outerLineWidth, w, outerLineWidth, borderFabricCache);
+      // Left
+      fillRectWithSwatch(ctx, color, colorMap, startX + offset, startY + offset + outerLineWidth, outerLineWidth, h - outerLineWidth * 2, borderFabricCache);
+      // Right
+      fillRectWithSwatch(ctx, color, colorMap, startX + totalW - offset - outerLineWidth, startY + offset + outerLineWidth, outerLineWidth, h - outerLineWidth * 2, borderFabricCache);
+    }
+  }
+
+  const gridStartX = startX + totalOuterBorder;
+  const gridStartY = startY + totalOuterBorder;
+
+  // Helper to get block position accounting for sashing
+  function getBlockPos(row: number, col: number): { x: number; y: number } {
+    const sashingBeforeX = repW > 0 ? Math.floor(col / repW) : 0;
+    const sashingBeforeY = repH > 0 ? Math.floor(row / repH) : 0;
+    return {
+      x: gridStartX + col * cellSize + sashingBeforeX * sashingLineCount * sashingLineWidth,
+      y: gridStartY + row * cellSize + sashingBeforeY * sashingLineCount * sashingLineWidth,
+    };
+  }
+
+  // Draw sashing (between repeat blocks)
+  if (sashingLineCount > 0 && state.sashingBorder?.colors) {
+    ctx.save();
+    
+    // Vertical sashing
+    if (repW > 0) {
+      for (let col = repW; col < cols; col += repW) {
+        const pos = getBlockPos(0, col);
+        const sashX = pos.x - sashingLineCount * sashingLineWidth;
+        
+        for (let i = 0; i < sashingLineCount; i++) {
+          const color = state.sashingBorder.colors[i] || "#888888";
+          fillRectWithSwatch(ctx, color, colorMap, sashX + i * sashingLineWidth, gridStartY, sashingLineWidth, gridH, borderFabricCache);
+        }
+      }
+    }
+    
+    // Horizontal sashing
+    if (repH > 0) {
+      for (let row = repH; row < rows; row += repH) {
+        const pos = getBlockPos(row, 0);
+        const sashY = pos.y - sashingLineCount * sashingLineWidth;
+        
+        for (let i = 0; i < sashingLineCount; i++) {
+          const color = state.sashingBorder.colors[i] || "#888888";
+          fillRectWithSwatch(ctx, color, colorMap, gridStartX, sashY + i * sashingLineWidth, gridW, sashingLineWidth, borderFabricCache);
+        }
+      }
+    }
+    
+    // Cornerstones (intersection squares)
+    const cornerstoneColor = state.sashingBorder.cornerstoneColor;
+    if (cornerstoneColor && repW > 0 && repH > 0) {
+      const cornerSize = sashingLineCount * sashingLineWidth;
+      
+      for (let row = repH; row < rows; row += repH) {
+        for (let col = repW; col < cols; col += repW) {
+          const pos = getBlockPos(row, col);
+          const cornerX = pos.x - cornerSize;
+          const cornerY = pos.y - cornerSize;
+          fillRectWithSwatch(ctx, cornerstoneColor, colorMap, cornerX, cornerY, cornerSize, cornerSize, borderFabricCache);
+        }
+      }
+    }
+    
+    ctx.restore();
+  }
 
   // Draw blocks
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const x = offsetX + col * cellSize;
-      const y = offsetY + row * cellSize;
-      drawBlock(ctx, grid[row][col], x, y, cellSize);
+      const pos = getBlockPos(row, col);
+      drawBlock(ctx, grid[row][col], pos.x, pos.y, cellSize, colorMap);
     }
   }
 
@@ -57,50 +236,26 @@ export function render(
   ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
   ctx.lineWidth = 1;
   for (let row = 0; row <= rows; row++) {
-    const y = offsetY + row * cellSize;
+    const pos = getBlockPos(row, 0);
+    const endPos = getBlockPos(row, cols - 1);
     ctx.beginPath();
-    ctx.moveTo(offsetX, y);
-    ctx.lineTo(offsetX + totalW, y);
+    ctx.moveTo(pos.x, pos.y);
+    ctx.lineTo(endPos.x + cellSize, pos.y);
     ctx.stroke();
   }
   for (let col = 0; col <= cols; col++) {
-    const x = offsetX + col * cellSize;
+    const pos = getBlockPos(0, col);
+    const endPos = getBlockPos(rows - 1, col);
     ctx.beginPath();
-    ctx.moveTo(x, offsetY);
-    ctx.lineTo(x, offsetY + totalH);
+    ctx.moveTo(pos.x, pos.y);
+    ctx.lineTo(pos.x, endPos.y + cellSize);
     ctx.stroke();
   }
 
-  // Draw repeat block boundaries
-  const repW = state.repeatWidth > 0 ? Math.min(state.repeatWidth, cols) : 0;
-  const repH = state.repeatHeight > 0 ? Math.min(state.repeatHeight, rows) : 0;
-  if (repW > 0 || repH > 0) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
-    ctx.lineWidth = 2;
-    if (repH > 0) {
-      for (let row = repH; row < rows; row += repH) {
-        const y = offsetY + row * cellSize;
-        ctx.beginPath();
-        ctx.moveTo(offsetX, y);
-        ctx.lineTo(offsetX + totalW, y);
-        ctx.stroke();
-      }
-    }
-    if (repW > 0) {
-      for (let col = repW; col < cols; col += repW) {
-        const x = offsetX + col * cellSize;
-        ctx.beginPath();
-        ctx.moveTo(x, offsetY);
-        ctx.lineTo(x, offsetY + totalH);
-        ctx.stroke();
-      }
-    }
-  }
-
-  // Outer border
+  // Outer border stroke
   ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
   ctx.lineWidth = 2;
-  ctx.strokeRect(offsetX, offsetY, totalW, totalH);
+  ctx.strokeRect(startX, startY, totalW, totalH);
 }
 
 export function renderToCanvas(
@@ -112,15 +267,16 @@ export function renderToCanvas(
     includeGrid?: boolean;
     includeRepeat?: boolean;
     background?: string;
+    colorMap?: ColorToSwatchMap;
   }
 ): HTMLCanvasElement {
   const rows = grid.length;
   const cols = grid[0]?.length ?? 0;
-  const cellSize = options?.cellSize ?? 80;
+  const baseCellSize = options?.cellSize ?? 80;
   const scale = options?.scale ?? 1;
   const includeGrid = options?.includeGrid ?? true;
-  const includeRepeat = options?.includeRepeat ?? true;
   const background = options?.background ?? "#1a1a2e";
+  const colorMap = options?.colorMap;
 
   const canvas = document.createElement("canvas");
   if (rows === 0 || cols === 0) {
@@ -129,71 +285,162 @@ export function renderToCanvas(
     return canvas;
   }
 
-  const width = cols * cellSize;
-  const height = rows * cellSize;
-  canvas.width = width * scale;
-  canvas.height = height * scale;
+  // Border configuration
+  const outerLineCount = state.outerBorder?.lineCount || 0;
+  const sashingLineCount = state.sashingBorder?.lineCount || 0;
+  const outerWidthFrac = state.outerBorder?.widthFraction || 0.25;
+  const sashingWidthFrac = state.sashingBorder?.widthFraction || 0.25;
+  
+  const repW = state.repeatWidth > 0 ? Math.min(state.repeatWidth, cols) : cols;
+  const repH = state.repeatHeight > 0 ? Math.min(state.repeatHeight, rows) : rows;
+  
+  // Count sashing gaps
+  const sashingGapsX = repW > 0 ? Math.floor((cols - 1) / repW) : 0;
+  const sashingGapsY = repH > 0 ? Math.floor((rows - 1) / repH) : 0;
+  
+  // Border widths based on cell size
+  const outerLineWidth = Math.round(baseCellSize * outerWidthFrac);
+  const sashingLineWidth = Math.round(baseCellSize * sashingWidthFrac);
+  
+  const totalOuterBorder = outerLineCount * outerLineWidth;
+  const totalSashingX = sashingGapsX * sashingLineCount * sashingLineWidth;
+  const totalSashingY = sashingGapsY * sashingLineCount * sashingLineWidth;
+
+  // Total dimensions
+  const gridW = baseCellSize * cols + totalSashingX;
+  const gridH = baseCellSize * rows + totalSashingY;
+  const totalW = gridW + totalOuterBorder * 2;
+  const totalH = gridH + totalOuterBorder * 2;
+
+  canvas.width = totalW * scale;
+  canvas.height = totalH * scale;
   const ctx = canvas.getContext("2d")!;
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   ctx.fillStyle = background;
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, totalW, totalH);
 
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const x = col * cellSize;
-      const y = row * cellSize;
-      drawBlock(ctx, grid[row][col], x, y, cellSize);
+  // Pre-load fabric images for borders
+  if (colorMap) {
+    state.outerBorder?.colors?.forEach(c => {
+      const swatch = colorMap.get(c.toUpperCase());
+      if (swatch && isFabricSwatch(swatch)) ensureFabricLoaded(swatch.dataUrl);
+    });
+    state.sashingBorder?.colors?.forEach(c => {
+      const swatch = colorMap.get(c.toUpperCase());
+      if (swatch && isFabricSwatch(swatch)) ensureFabricLoaded(swatch.dataUrl);
+    });
+    const cornerColor = state.sashingBorder?.cornerstoneColor;
+    if (cornerColor) {
+      const swatch = colorMap.get(cornerColor.toUpperCase());
+      if (swatch && isFabricSwatch(swatch)) ensureFabricLoaded(swatch.dataUrl);
     }
   }
 
+  // Draw outer border
+  if (outerLineCount > 0 && state.outerBorder?.colors) {
+    for (let i = 0; i < outerLineCount; i++) {
+      const color = state.outerBorder.colors[i] || "#888888";
+      const offset = i * outerLineWidth;
+      const w = totalW - offset * 2;
+      const h = totalH - offset * 2;
+      
+      fillRectWithSwatch(ctx, color, colorMap, offset, offset, w, outerLineWidth, borderFabricCache);
+      fillRectWithSwatch(ctx, color, colorMap, offset, totalH - offset - outerLineWidth, w, outerLineWidth, borderFabricCache);
+      fillRectWithSwatch(ctx, color, colorMap, offset, offset + outerLineWidth, outerLineWidth, h - outerLineWidth * 2, borderFabricCache);
+      fillRectWithSwatch(ctx, color, colorMap, totalW - offset - outerLineWidth, offset + outerLineWidth, outerLineWidth, h - outerLineWidth * 2, borderFabricCache);
+    }
+  }
+
+  const gridStartX = totalOuterBorder;
+  const gridStartY = totalOuterBorder;
+
+  // Helper to get block position accounting for sashing
+  function getBlockPos(row: number, col: number): { x: number; y: number } {
+    const sashingBeforeX = repW > 0 ? Math.floor(col / repW) : 0;
+    const sashingBeforeY = repH > 0 ? Math.floor(row / repH) : 0;
+    return {
+      x: gridStartX + col * baseCellSize + sashingBeforeX * sashingLineCount * sashingLineWidth,
+      y: gridStartY + row * baseCellSize + sashingBeforeY * sashingLineCount * sashingLineWidth,
+    };
+  }
+
+  // Draw sashing
+  if (sashingLineCount > 0 && state.sashingBorder?.colors) {
+    // Vertical sashing
+    if (repW > 0) {
+      for (let col = repW; col < cols; col += repW) {
+        const pos = getBlockPos(0, col);
+        const sashX = pos.x - sashingLineCount * sashingLineWidth;
+        
+        for (let i = 0; i < sashingLineCount; i++) {
+          const color = state.sashingBorder.colors[i] || "#888888";
+          fillRectWithSwatch(ctx, color, colorMap, sashX + i * sashingLineWidth, gridStartY, sashingLineWidth, gridH, borderFabricCache);
+        }
+      }
+    }
+    
+    // Horizontal sashing
+    if (repH > 0) {
+      for (let row = repH; row < rows; row += repH) {
+        const pos = getBlockPos(row, 0);
+        const sashY = pos.y - sashingLineCount * sashingLineWidth;
+        
+        for (let i = 0; i < sashingLineCount; i++) {
+          const color = state.sashingBorder.colors[i] || "#888888";
+          fillRectWithSwatch(ctx, color, colorMap, gridStartX, sashY + i * sashingLineWidth, gridW, sashingLineWidth, borderFabricCache);
+        }
+      }
+    }
+    
+    // Cornerstones
+    const cornerstoneColor = state.sashingBorder.cornerstoneColor;
+    if (cornerstoneColor && repW > 0 && repH > 0) {
+      const cornerSize = sashingLineCount * sashingLineWidth;
+      
+      for (let row = repH; row < rows; row += repH) {
+        for (let col = repW; col < cols; col += repW) {
+          const pos = getBlockPos(row, col);
+          fillRectWithSwatch(ctx, cornerstoneColor, colorMap, pos.x - cornerSize, pos.y - cornerSize, cornerSize, cornerSize, borderFabricCache);
+        }
+      }
+    }
+  }
+
+  // Draw blocks
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const pos = getBlockPos(row, col);
+      drawBlock(ctx, grid[row][col], pos.x, pos.y, baseCellSize, colorMap);
+    }
+  }
+
+  // Draw grid lines
   if (includeGrid) {
     ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
     ctx.lineWidth = 1;
     for (let row = 0; row <= rows; row++) {
-      const y = row * cellSize;
+      const pos = getBlockPos(row, 0);
+      const endPos = getBlockPos(row, cols - 1);
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
+      ctx.moveTo(pos.x, pos.y);
+      ctx.lineTo(endPos.x + baseCellSize, pos.y);
       ctx.stroke();
     }
     for (let col = 0; col <= cols; col++) {
-      const x = col * cellSize;
+      const pos = getBlockPos(0, col);
+      const endPos = getBlockPos(rows - 1, col);
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
+      ctx.moveTo(pos.x, pos.y);
+      ctx.lineTo(pos.x, endPos.y + baseCellSize);
       ctx.stroke();
     }
   }
 
-  if (includeRepeat) {
-    const repW = state.repeatWidth > 0 ? Math.min(state.repeatWidth, cols) : 0;
-    const repH = state.repeatHeight > 0 ? Math.min(state.repeatHeight, rows) : 0;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
-    ctx.lineWidth = 2;
-    if (repH > 0) {
-      for (let row = repH; row < rows; row += repH) {
-        const y = row * cellSize;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-    }
-    if (repW > 0) {
-      for (let col = repW; col < cols; col += repW) {
-        const x = col * cellSize;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-    }
-  }
-
+  // Outer border stroke
   ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
   ctx.lineWidth = 2;
-  ctx.strokeRect(0, 0, width, height);
+  ctx.strokeRect(0, 0, totalW, totalH);
 
   return canvas;
 }
@@ -259,6 +506,34 @@ function svgBlock(block: QuiltBlock, x: number, y: number, size: number): string
           [x, y],
           [x + half, y + half],
         ])}" fill="${block.colors[3]}" />`
+      );
+      break;
+    }
+    case ShapeType.HSTSplit: {
+      const half = size / 2;
+      // Solid half (bottom-left at rotation 0)
+      parts.push(
+        `<polygon points="${points([
+          [x, y],
+          [x, y + size],
+          [x + size, y + size],
+        ])}" fill="${block.colors[0]}" />`
+      );
+      // Split - top triangle
+      parts.push(
+        `<polygon points="${points([
+          [x, y],
+          [x + size, y],
+          [x + half, y + half],
+        ])}" fill="${block.colors[1]}" />`
+      );
+      // Split - right triangle
+      parts.push(
+        `<polygon points="${points([
+          [x + size, y],
+          [x + size, y + size],
+          [x + half, y + half],
+        ])}" fill="${block.colors[2]}" />`
       );
       break;
     }

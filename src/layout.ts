@@ -38,6 +38,10 @@ function randomBlock(rng: SeededRandom, pool: ShapeType[], paletteColors: string
         rng.pick(paletteColors),
       ];
       break;
+    default:
+      // HSTSplit and other derived shapes are only created by simplification
+      colors = [rng.pick(paletteColors)];
+      break;
   }
 
   return { shape, colors, rotation };

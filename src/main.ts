@@ -1,8 +1,30 @@
 import { Store, defaultState } from "./state";
 import { generateGrid } from "./layout";
+import { simplifyGrid } from "./simplify";
 import { render, renderSvg, renderToCanvas } from "./renderer";
 import { bindUI } from "./ui";
 import type { Palette } from "./types";
+import { getAllPalettes } from "./palette";
+import { preloadFabricSwatches, setOnFabricLoaded, type ColorToSwatchMap } from "./shapes";
+import { embedInPng, embedInSvg, loadCartridgeFromFile } from "./cartridge";
+
+function buildColorMap(state: typeof store extends { get: () => infer S } ? S : never): ColorToSwatchMap {
+  const palettes = getAllPalettes(state.customPalettes);
+  const palette = palettes[state.paletteIndex % palettes.length];
+  const swatches = palette.swatches || palette.colors;
+  
+  // Map each color from palette.colors to its corresponding swatch
+  const map: ColorToSwatchMap = new Map();
+  palette.colors.forEach((color, idx) => {
+    const swatch = swatches[idx] ?? color;
+    map.set(color.toUpperCase(), swatch);
+  });
+  
+  // Preload any fabric images
+  preloadFabricSwatches(swatches);
+  
+  return map;
+}
 
 const store = new Store(defaultState());
 const canvas = document.getElementById("quilt-canvas") as HTMLCanvasElement;
@@ -22,6 +44,8 @@ function loadCustomPalettes(): Palette[] {
         colors: entry.colors
           .filter((color: unknown) => typeof color === "string")
           .slice(0, 6),
+        // Preserve swatches (may contain fabric data URLs)
+        swatches: Array.isArray(entry.swatches) ? entry.swatches : undefined,
       }))
       .filter((entry) => entry.colors.length === 6);
   } catch {
@@ -69,11 +93,16 @@ async function shareOrDownload(blob: Blob, fileName: string) {
 
 async function downloadPng() {
   const state = store.get();
-  const exportCanvas = renderToCanvas(currentGrid, state, { cellSize: 80, scale: 2 });
-  const blob = await new Promise<Blob | null>((resolve) =>
+  const colorMap = buildColorMap(state);
+  const exportCanvas = renderToCanvas(currentGrid, state, { cellSize: 80, scale: 2, colorMap });
+  let blob = await new Promise<Blob | null>((resolve) =>
     exportCanvas.toBlob(resolve, "image/png")
   );
   if (!blob) return;
+  
+  // Embed cartridge data (settings) in PNG metadata
+  blob = await embedInPng(blob, state);
+  
   await shareOrDownload(
     blob,
     `quilt-${state.seed}-${state.gridWidth}x${state.gridHeight}.png`
@@ -82,7 +111,11 @@ async function downloadPng() {
 
 async function downloadSvg() {
   const state = store.get();
-  const svg = renderSvg(currentGrid, state);
+  let svg = renderSvg(currentGrid, state);
+  
+  // Embed cartridge data (settings) in SVG metadata
+  svg = embedInSvg(svg, state);
+  
   const blob = new Blob([svg], { type: "image/svg+xml" });
   await shareOrDownload(
     blob,
@@ -90,12 +123,108 @@ async function downloadSvg() {
   );
 }
 
+function generateCuttingList(): string {
+  const state = store.get();
+  const palettes = getAllPalettes(state.customPalettes);
+  const palette = palettes[state.paletteIndex % palettes.length];
+  
+  // Build a map of color hex -> palette index (1-based for human readability)
+  const colorToIndex = new Map<string, number>();
+  palette.colors.forEach((color, idx) => {
+    colorToIndex.set(color.toUpperCase(), idx + 1);
+  });
+  
+  // Count unique pieces: key = "shape|colorIndices|rotation"
+  const pieces = new Map<string, { 
+    shape: string; 
+    colors: (number | string)[]; 
+    rotation: number; 
+    count: number;
+  }>();
+  
+  for (const row of currentGrid) {
+    for (const block of row) {
+      const colorIndices = block.colors.map(c => colorToIndex.get(c.toUpperCase()) ?? c);
+      const key = `${block.shape}|${colorIndices.join(",")}|${block.rotation}`;
+      
+      if (pieces.has(key)) {
+        pieces.get(key)!.count++;
+      } else {
+        pieces.set(key, {
+          shape: block.shape,
+          colors: colorIndices,
+          rotation: block.rotation,
+          count: 1,
+        });
+      }
+    }
+  }
+  
+  // Build CSV with separate color columns
+  const lines: string[] = [
+    `# Cutting List for Quilt Design`,
+    `# Seed: ${state.seed}`,
+    `# Grid: ${state.gridWidth} x ${state.gridHeight}`,
+    `# Palette: ${palette.name}`,
+    `#`,
+    `# Color Key:`,
+    ...palette.colors.map((c, i) => `#   ${i + 1} = ${c}`),
+    `#`,
+    `# Each row = one unique piece. "Cut" = how many of that exact piece to cut.`,
+    ``,
+    `Shape,Color 1,Color 2,Color 3,Color 4,Rotation,Cut`,
+  ];
+  
+  // Sort by shape, then by count descending
+  const sorted = [...pieces.values()].sort((a, b) => {
+    if (a.shape !== b.shape) return a.shape.localeCompare(b.shape);
+    return b.count - a.count;
+  });
+  
+  for (const piece of sorted) {
+    // Pad colors array to 4 elements
+    const cols = [
+      piece.colors[0] ?? "",
+      piece.colors[1] ?? "",
+      piece.colors[2] ?? "",
+      piece.colors[3] ?? "",
+    ];
+    lines.push(`${piece.shape},${cols.join(",")},${piece.rotation}°,${piece.count}`);
+  }
+  
+  // Add totals
+  const totalPieces = sorted.reduce((sum, p) => sum + p.count, 0);
+  const uniqueVariants = sorted.length;
+  lines.push(``);
+  lines.push(`# Total pieces: ${totalPieces}`);
+  lines.push(`# Unique variants: ${uniqueVariants}`);
+  
+  return lines.join("\n");
+}
+
+async function downloadCuttingList() {
+  const state = store.get();
+  const csv = generateCuttingList();
+  const blob = new Blob([csv], { type: "text/csv" });
+  await shareOrDownload(
+    blob,
+    `quilt-${state.seed}-cutting-list.csv`
+  );
+}
+
 function redraw() {
   const state = store.get();
-  const grid = generateGrid(state);
-  currentGrid = grid;
-  render(canvas, grid, state);
+  const rawGrid = generateGrid(state);
+  // Simplify blocks where adjacent triangles of same color can merge
+  currentGrid = simplifyGrid(rawGrid);
+  const colorMap = buildColorMap(state);
+  render(canvas, currentGrid, state, colorMap);
 }
+
+// Re-render when fabric images finish loading
+setOnFabricLoaded(() => {
+  redraw();
+});
 
 // Re-render on any state change
 store.subscribe(redraw);
@@ -104,7 +233,63 @@ store.subscribe(redraw);
 window.addEventListener("resize", redraw);
 
 // Wire up UI controls
-bindUI(store, { onExportPng: downloadPng, onExportSvg: downloadSvg });
+bindUI(store, { onExportPng: downloadPng, onExportSvg: downloadSvg, onExportCuttingList: downloadCuttingList });
+
+// --- Load design functionality ---
+const loadDesignBtn = document.getElementById("load-design");
+const loadDesignInput = document.getElementById("load-design-input") as HTMLInputElement;
+
+async function handleLoadFile(file: File) {
+  const loadedState = await loadCartridgeFromFile(file);
+  if (loadedState) {
+    // Merge loaded state with current state (preserving any fields not in cartridge)
+    store.update(loadedState);
+    alert(`Loaded design: ${file.name}`);
+  } else {
+    alert("Could not load design from this file. Make sure it's a PNG or SVG saved from Quilt Designer.");
+  }
+}
+
+if (loadDesignBtn && loadDesignInput) {
+  loadDesignBtn.addEventListener("click", () => {
+    loadDesignInput.click();
+  });
+  
+  loadDesignInput.addEventListener("change", async () => {
+    const file = loadDesignInput.files?.[0];
+    if (file) {
+      await handleLoadFile(file);
+      loadDesignInput.value = ""; // Reset for next load
+    }
+  });
+}
+
+// Drag & drop support
+const dropTarget = document.body;
+
+dropTarget.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropTarget.classList.add("drop-active");
+});
+
+dropTarget.addEventListener("dragleave", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropTarget.classList.remove("drop-active");
+});
+
+dropTarget.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropTarget.classList.remove("drop-active");
+  
+  const file = e.dataTransfer?.files[0];
+  if (file && (file.type === "image/png" || file.type === "image/svg+xml" || 
+      file.name.endsWith(".png") || file.name.endsWith(".svg"))) {
+    await handleLoadFile(file);
+  }
+});
 
 // Initial render
 redraw();
