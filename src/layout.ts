@@ -337,8 +337,24 @@ function generateTile(
   return tile;
 }
 
+// Count unique colors used in a tile
+function countUsedColors(tile: QuiltBlock[][], paletteColors: string[]): number {
+  const used = new Set<string>();
+  const paletteSet = new Set(paletteColors.map(c => c.toUpperCase()));
+  
+  for (const row of tile) {
+    for (const block of row) {
+      for (const color of block.colors) {
+        if (paletteSet.has(color.toUpperCase())) {
+          used.add(color.toUpperCase());
+        }
+      }
+    }
+  }
+  return used.size;
+}
+
 export function generateGrid(state: AppState): QuiltBlock[][] {
-  const rng = new SeededRandom(state.seed);
   const palettes = getAllPalettes(state.customPalettes);
   const palette = palettes[state.paletteIndex % palettes.length];
   const colorCount = Math.max(1, Math.min(state.paletteColorCount, palette.colors.length));
@@ -350,8 +366,37 @@ export function generateGrid(state: AppState): QuiltBlock[][] {
   const tileW = repeatWidth > 0 ? Math.min(repeatWidth, gridWidth) : gridWidth;
   const tileH = repeatHeight > 0 ? Math.min(repeatHeight, gridHeight) : gridHeight;
 
-  const tile = generateTile(tileW, tileH, symmetry, symmetryMode, rng, pool, paletteColors, exactColors);
+  // For exact colors mode, retry with different seeds until all colors are used
+  const maxAttempts = exactColors ? 100 : 1;
+  let bestTile: QuiltBlock[][] | null = null;
+  let bestColorCount = 0;
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const rng = new SeededRandom(state.seed + attempt);
+    const tile = generateTile(tileW, tileH, symmetry, symmetryMode, rng, pool, paletteColors, exactColors);
+    
+    if (!exactColors) {
+      bestTile = tile;
+      break;
+    }
+    
+    const usedCount = countUsedColors(tile, paletteColors);
+    
+    if (usedCount >= colorCount) {
+      // Found a tile that uses all colors
+      bestTile = tile;
+      break;
+    }
+    
+    // Keep track of best attempt in case we can't find a perfect one
+    if (usedCount > bestColorCount) {
+      bestColorCount = usedCount;
+      bestTile = tile;
+    }
+  }
 
+  const tile = bestTile!;
+  
   const grid: QuiltBlock[][] = Array.from({ length: gridHeight }, (_, row) =>
     Array.from({ length: gridWidth }, (_, col) => tile[row % tileH][col % tileW])
   );

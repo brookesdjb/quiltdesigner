@@ -1,0 +1,16 @@
+{
+  "name": "Quilt Designer",
+  "short_name": "QuiltDesign",
+  "description": "Free online quilt pattern generator with fabric textures, symmetry patterns, and cutting list export.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#6c63ff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

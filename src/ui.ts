@@ -4,6 +4,7 @@ import { getAllPalettes, BASE_PALETTES } from "./palette";
 import { loadGenerations, saveGeneration, generateName } from "./generations";
 import { createFabricEditor } from "./fabric-editor";
 import type { Palette } from "./types";
+import { fetchSharedPalettes, sharePalette, likePalette, formatTimeAgo, type SharedPalette } from "./api-client";
 
 const SYMMETRY_MODE_LABELS: { mode: SymmetryMode; label: string }[] = [
   { mode: SymmetryMode.None, label: "None" },
@@ -825,6 +826,193 @@ export function bindUI(
   if (exportCuttingListBtn && actions?.onExportCuttingList) {
     exportCuttingListBtn.addEventListener("click", actions.onExportCuttingList);
   }
+
+  // --- Shared Palettes ---
+  const sharedPalettesModal = $("shared-palettes-modal");
+  const sharedPalettesList = $("shared-palettes-list");
+  const browsePalettesBtn = $("browse-palettes-btn");
+  const closeSharedPalettesBtn = $("close-shared-palettes");
+  const loadMoreBtn = $("load-more-palettes");
+  const shareCurrentBtn = $("share-current-palette-btn");
+  
+  let sharedPalettesCursor: string | undefined;
+  let hasMorePalettes = false;
+
+  function renderSharedPalette(palette: SharedPalette): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "shared-palette-card";
+    
+    const swatchesDiv = document.createElement("div");
+    swatchesDiv.className = "shared-palette-swatches";
+    
+    palette.colors.slice(0, 6).forEach((color, idx) => {
+      const swatch = document.createElement("div");
+      swatch.className = "shared-palette-swatch";
+      if (palette.hasFabrics && palette.fabricDataUrls?.[idx]) {
+        swatch.style.backgroundImage = `url(${palette.fabricDataUrls[idx]})`;
+      } else {
+        swatch.style.backgroundColor = color;
+      }
+      swatchesDiv.appendChild(swatch);
+    });
+    
+    const info = document.createElement("div");
+    info.className = "shared-palette-info";
+    info.innerHTML = `
+      <div class="shared-palette-name">${palette.name}</div>
+      <div class="shared-palette-meta">
+        <span>${formatTimeAgo(palette.createdAt)}</span>
+        <span>❤️ ${palette.likes}</span>
+        ${palette.hasFabrics ? '<span>🧵 Fabrics</span>' : ''}
+      </div>
+    `;
+    
+    const actions = document.createElement("div");
+    actions.className = "shared-palette-actions";
+    
+    const likeBtn = document.createElement("button");
+    likeBtn.className = "like-btn";
+    likeBtn.textContent = "❤️";
+    likeBtn.title = "Like this palette";
+    likeBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        const result = await likePalette(palette.id);
+        palette.likes = result.likes;
+        info.querySelector(".shared-palette-meta span:nth-child(2)")!.textContent = `❤️ ${result.likes}`;
+      } catch (err) {
+        console.error("Failed to like:", err);
+      }
+    });
+    
+    actions.appendChild(likeBtn);
+    
+    card.appendChild(swatchesDiv);
+    card.appendChild(info);
+    card.appendChild(actions);
+    
+    // Click to import palette
+    card.addEventListener("click", () => {
+      importSharedPalette(palette);
+      closeSharedPalettesModal();
+    });
+    
+    return card;
+  }
+
+  function importSharedPalette(palette: SharedPalette) {
+    const customPalettes = [...store.get().customPalettes];
+    
+    // Create swatches from shared palette
+    const swatches: Swatch[] = palette.colors.map((color, idx) => {
+      if (palette.hasFabrics && palette.fabricDataUrls?.[idx]) {
+        return {
+          type: "fabric" as const,
+          dataUrl: palette.fabricDataUrls[idx],
+          sourceUrl: palette.fabricDataUrls[idx],
+        };
+      }
+      return color;
+    });
+    
+    const newPalette: Palette = {
+      name: palette.name,
+      colors: palette.colors,
+      swatches,
+    };
+    
+    customPalettes.push(newPalette);
+    const newPaletteIndex = baseCount + customPalettes.length - 1;
+    
+    store.update({ customPalettes, paletteIndex: newPaletteIndex });
+    renderPaletteSwatches(getAllPalettes(customPalettes), newPaletteIndex);
+  }
+
+  async function loadSharedPalettes(append = false) {
+    if (!append) {
+      sharedPalettesList.innerHTML = '<div class="shared-palettes-loading">Loading...</div>';
+      sharedPalettesCursor = undefined;
+    }
+    
+    try {
+      const response = await fetchSharedPalettes(sharedPalettesCursor);
+      
+      if (!append) {
+        sharedPalettesList.innerHTML = "";
+      } else {
+        // Remove loading indicator if appending
+        const loading = sharedPalettesList.querySelector(".shared-palettes-loading");
+        if (loading) loading.remove();
+      }
+      
+      if (response.palettes.length === 0 && !append) {
+        sharedPalettesList.innerHTML = '<div class="shared-palettes-empty">No shared palettes yet. Be the first to share one!</div>';
+      } else {
+        response.palettes.forEach(palette => {
+          sharedPalettesList.appendChild(renderSharedPalette(palette));
+        });
+      }
+      
+      sharedPalettesCursor = response.cursor;
+      hasMorePalettes = response.hasMore;
+      loadMoreBtn.style.display = hasMorePalettes ? "block" : "none";
+      
+    } catch (err) {
+      console.error("Failed to load palettes:", err);
+      sharedPalettesList.innerHTML = '<div class="shared-palettes-empty">Failed to load palettes. Please try again.</div>';
+    }
+  }
+
+  function openSharedPalettesModal() {
+    sharedPalettesModal.classList.add("open");
+    loadSharedPalettes();
+  }
+
+  function closeSharedPalettesModal() {
+    sharedPalettesModal.classList.remove("open");
+  }
+
+  browsePalettesBtn.addEventListener("click", openSharedPalettesModal);
+  closeSharedPalettesBtn.addEventListener("click", closeSharedPalettesModal);
+  
+  sharedPalettesModal.addEventListener("click", (e) => {
+    if (e.target === sharedPalettesModal) {
+      closeSharedPalettesModal();
+    }
+  });
+
+  loadMoreBtn.addEventListener("click", () => {
+    loadSharedPalettes(true);
+  });
+
+  shareCurrentBtn.addEventListener("click", async () => {
+    const state = store.get();
+    const palettes = getAllPalettes(state.customPalettes);
+    const currentPalette = palettes[state.paletteIndex % palettes.length];
+    
+    const name = prompt("Name for your shared palette:", currentPalette.name || "My Palette");
+    if (!name) return;
+    
+    try {
+      // Get fabric data URLs if present
+      const fabricDataUrls = currentPalette.swatches
+        ?.filter(isFabricSwatch)
+        .map(s => s.dataUrl);
+      
+      await sharePalette(
+        name,
+        currentPalette.colors,
+        fabricDataUrls && fabricDataUrls.length > 0 ? 
+          currentPalette.swatches?.map(s => isFabricSwatch(s) ? s.dataUrl : "") :
+          undefined
+      );
+      
+      alert("Palette shared successfully! 🎉");
+      loadSharedPalettes(); // Refresh list
+    } catch (err) {
+      alert("Failed to share palette: " + (err as Error).message);
+    }
+  });
 
   // --- Sync UI from state ---
   store.subscribe(() => {

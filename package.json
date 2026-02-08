@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@vercel/node": "^5.5.33",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@upstash/redis": "^1.36.2",
     "@vercel/analytics": "^1.6.1"
   }
 }

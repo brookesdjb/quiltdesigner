@@ -1,0 +1,6 @@
+# robots.txt for quiltdesign.app
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://quiltdesign.app/sitemap.xml

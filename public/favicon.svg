@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Quilt block pattern favicon -->
+  <rect width="32" height="32" fill="#1a1a2e"/>
+  <!-- Top-left HST -->
+  <polygon points="2,2 14,2 2,14" fill="#6c63ff"/>
+  <polygon points="14,2 14,14 2,14" fill="#a855f7"/>
+  <!-- Top-right HST -->
+  <polygon points="18,2 30,2 30,14" fill="#a855f7"/>
+  <polygon points="18,2 18,14 30,14" fill="#6c63ff"/>
+  <!-- Bottom-left HST -->
+  <polygon points="2,18 14,18 14,30" fill="#a855f7"/>
+  <polygon points="2,18 2,30 14,30" fill="#6c63ff"/>
+  <!-- Bottom-right HST -->
+  <polygon points="18,18 30,18 18,30" fill="#6c63ff"/>
+  <polygon points="30,18 30,30 18,30" fill="#a855f7"/>
+</svg>

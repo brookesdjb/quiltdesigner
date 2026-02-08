@@ -3,7 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quilt Designer</title>
+  
+  <!-- Primary Meta Tags -->
+  <title>Quilt Designer - Free Online Quilt Pattern Generator | QuiltDesign.app</title>
+  <meta name="title" content="Quilt Designer - Free Online Quilt Pattern Generator | QuiltDesign.app" />
+  <meta name="description" content="Design beautiful quilt patterns with our free online tool. Create custom quilts with HST, QST, and square blocks. Add fabric textures, symmetry patterns, borders, and export cutting lists. Perfect for quilters of all skill levels." />
+  <meta name="keywords" content="quilt designer, quilt pattern generator, free quilt design, HST quilt, QST quilt, half square triangle, quarter square triangle, quilt blocks, fabric patterns, quilting tool, quilt symmetry, cutting list, quilt borders, sashing" />
+  <meta name="author" content="The Architech" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://quiltdesign.app/" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://quiltdesign.app/" />
+  <meta property="og:title" content="Quilt Designer - Free Online Quilt Pattern Generator" />
+  <meta property="og:description" content="Design beautiful quilt patterns with our free online tool. Create custom quilts with fabric textures, symmetry, and export cutting lists." />
+  <meta property="og:image" content="https://quiltdesign.app/og-image.png" />
+  <meta property="og:site_name" content="QuiltDesign.app" />
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://quiltdesign.app/" />
+  <meta name="twitter:title" content="Quilt Designer - Free Online Quilt Pattern Generator" />
+  <meta name="twitter:description" content="Design beautiful quilt patterns with our free online tool. Create custom quilts with fabric textures, symmetry, and export cutting lists." />
+  <meta name="twitter:image" content="https://quiltdesign.app/og-image.png" />
+  
+  <!-- Favicon & PWA -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#6c63ff" />
+  
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Quilt Designer",
+    "url": "https://quiltdesign.app",
+    "description": "Free online quilt pattern generator with fabric textures, symmetry patterns, and cutting list export.",
+    "applicationCategory": "DesignApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": [
+      "Half Square Triangle (HST) blocks",
+      "Quarter Square Triangle (QST) blocks",
+      "Custom fabric textures",
+      "Multiple symmetry modes",
+      "Customizable borders and sashing",
+      "Cutting list export",
+      "PNG and SVG export"
+    ]
+  }
+  </script>
+  
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -503,6 +560,137 @@
       color: #e0e0e0;
     }
 
+    /* Shared palettes modal */
+    .shared-palettes-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .shared-palettes-overlay.open {
+      display: flex;
+    }
+
+    .shared-palettes-modal {
+      background: #1a1a2e;
+      border: 1px solid #3a3a5a;
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .shared-palettes-modal h2 {
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+      color: #f0e6d3;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .shared-palettes-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .shared-palette-card {
+      background: #2a2a4a;
+      border: 1px solid #3a3a5a;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .shared-palette-card:hover {
+      border-color: #6c63ff;
+    }
+
+    .shared-palette-swatches {
+      display: flex;
+      gap: 4px;
+    }
+
+    .shared-palette-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      border: 1px solid #3a3a5a;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .shared-palette-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .shared-palette-name {
+      font-weight: 500;
+      color: #e0e0e0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .shared-palette-meta {
+      font-size: 0.75rem;
+      color: #8888aa;
+      display: flex;
+      gap: 8px;
+    }
+
+    .shared-palette-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .like-btn {
+      background: none;
+      border: none;
+      color: #8888aa;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .like-btn:hover {
+      background: #3a3a5a;
+      color: #ff6b6b;
+    }
+
+    .shared-palettes-empty {
+      text-align: center;
+      color: #666;
+      padding: 40px;
+    }
+
+    .shared-palettes-loading {
+      text-align: center;
+      color: #8888aa;
+      padding: 20px;
+    }
+
+    .load-more-btn {
+      align-self: center;
+    }
+
     /* Fabric editor modal */
     .fabric-editor-overlay {
       display: none;
@@ -931,7 +1119,10 @@
     <div class="control-group">
       <label>Palette</label>
       <div id="palette-swatches"></div>
-      <button class="btn btn-secondary" id="create-palette-btn">+ Create Custom Palette</button>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="create-palette-btn">+ Create</button>
+        <button class="btn btn-secondary" id="browse-palettes-btn">🌐 Browse</button>
+      </div>
     </div>
 
     <div class="control-group">
@@ -1056,6 +1247,23 @@
         <span><span class="line-qst"></span> QST cuts</span>
       </div>
       <div id="fabric-editor-container"></div>
+    </div>
+  </div>
+
+  <!-- Shared Palettes Modal -->
+  <div class="shared-palettes-overlay" id="shared-palettes-modal">
+    <div class="shared-palettes-modal">
+      <h2>
+        <span>🌐 Community Palettes</span>
+        <button class="btn btn-secondary" id="share-current-palette-btn">Share Current</button>
+      </h2>
+      <div class="shared-palettes-list" id="shared-palettes-list">
+        <div class="shared-palettes-loading">Loading...</div>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: space-between;">
+        <button class="btn btn-secondary load-more-btn" id="load-more-palettes" style="display: none;">Load More</button>
+        <button class="btn btn-secondary" id="close-shared-palettes">Close</button>
+      </div>
     </div>
   </div>
   
