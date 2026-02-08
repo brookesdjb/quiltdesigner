@@ -141,7 +141,7 @@ export async function deleteSession(req: VercelRequest): Promise<void> {
 function getBaseUrl(): string {
   // Use explicit APP_URL if set, otherwise try VERCEL_URL, fallback to localhost
   if (process.env.APP_URL) {
-    return process.env.APP_URL;
+    return process.env.APP_URL.replace(/\/$/, ""); // Remove trailing slash
   }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
