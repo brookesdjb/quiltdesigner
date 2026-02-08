@@ -19,13 +19,12 @@ export interface PaletteListResponse {
 const API_BASE = "/api";
 
 export async function fetchSharedPalettes(cursor?: string): Promise<PaletteListResponse> {
-  const url = new URL(`${API_BASE}/palettes`, window.location.origin);
-  if (cursor) {
-    url.searchParams.set("cursor", cursor);
-  }
+  const params = cursor ? `?cursor=${cursor}` : "";
+  const res = await fetch(`${API_BASE}/palettes${params}`);
   
-  const res = await fetch(url.toString());
   if (!res.ok) {
+    const text = await res.text();
+    console.error("Fetch palettes error:", res.status, text);
     throw new Error("Failed to fetch palettes");
   }
   return res.json();
@@ -51,8 +50,14 @@ export async function sharePalette(
   });
   
   if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || "Failed to share palette");
+    const text = await res.text();
+    console.error("Share palette error:", res.status, text);
+    try {
+      const error = JSON.parse(text);
+      throw new Error(error.error || "Failed to share palette");
+    } catch {
+      throw new Error(`Failed to share palette: ${res.status}`);
+    }
   }
   return res.json();
 }
