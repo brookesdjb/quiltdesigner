@@ -10,6 +10,12 @@ import { embedInPng, embedInSvg, loadCartridgeFromFile } from "./cartridge";
 import { addSpriteSheet } from "./spritesheet";
 import { inject } from "@vercel/analytics";
 import { getCurrentUser, getUserPalettes, saveUserPalettes, type User } from "./api-client";
+import { 
+  createEmptyManualState, 
+  generateFromPrimary, 
+  createManualEditorOverlay,
+  type ManualEditorState 
+} from "./manual-editor";
 
 // Initialize Vercel Analytics
 inject();
@@ -37,7 +43,211 @@ function buildColorMap(state: typeof store extends { get: () => infer S } ? S : 
 
 const store = new Store(defaultState());
 const canvas = document.getElementById("quilt-canvas") as HTMLCanvasElement;
+const canvasWrapper = canvas.parentElement as HTMLElement;
 let currentGrid = generateGrid(store.get());
+
+// --- Mode management (random vs manual) ---
+type EditorMode = "random" | "manual";
+let currentMode: EditorMode = "random";
+let manualState: ManualEditorState | null = null;
+let manualOverlay: ReturnType<typeof createManualEditorOverlay> | null = null;
+let primaryOverlayEl: HTMLDivElement | null = null;
+let symmetryGuideH: HTMLDivElement | null = null;
+let symmetryGuideV: HTMLDivElement | null = null;
+
+function initManualState() {
+  const state = store.get();
+  const palettes = getAllPalettes(state.customPalettes);
+  const palette = palettes[state.paletteIndex % palettes.length];
+  const defaultColor = palette.colors[0] || "#888888";
+  
+  const halfW = Math.ceil(state.repeatWidth / 2);
+  const halfH = Math.ceil(state.repeatHeight / 2);
+  
+  manualState = createEmptyManualState(halfW, halfH, defaultColor);
+  manualState.repeatWidth = state.repeatWidth;
+  manualState.repeatHeight = state.repeatHeight;
+}
+
+function getManualPaletteColors(): string[] {
+  const state = store.get();
+  const palettes = getAllPalettes(state.customPalettes);
+  const palette = palettes[state.paletteIndex % palettes.length];
+  const colorCount = Math.max(1, Math.min(state.paletteColorCount, palette.colors.length));
+  return palette.colors.slice(0, colorCount);
+}
+
+function setupManualOverlay() {
+  if (!manualState) return;
+  
+  // Create primary segment highlight
+  if (!primaryOverlayEl) {
+    primaryOverlayEl = document.createElement("div");
+    primaryOverlayEl.className = "primary-segment-overlay";
+    canvasWrapper.appendChild(primaryOverlayEl);
+  }
+  
+  // Create symmetry guide lines
+  if (!symmetryGuideH) {
+    symmetryGuideH = document.createElement("div");
+    symmetryGuideH.className = "symmetry-guide horizontal";
+    canvasWrapper.appendChild(symmetryGuideH);
+  }
+  if (!symmetryGuideV) {
+    symmetryGuideV = document.createElement("div");
+    symmetryGuideV.className = "symmetry-guide vertical";
+    canvasWrapper.appendChild(symmetryGuideV);
+  }
+  
+  // Create interactive overlay
+  if (manualOverlay) {
+    manualOverlay.destroy();
+  }
+  
+  manualOverlay = createManualEditorOverlay(
+    canvasWrapper,
+    manualState.repeatWidth,
+    manualState.repeatHeight,
+    {
+      getPaletteColors: getManualPaletteColors,
+      getCell: (row, col) => manualState!.cells[row][col],
+      onCellChange: (row, col, block) => {
+        manualState!.cells[row][col] = block;
+        redrawManual();
+      },
+    }
+  );
+}
+
+function updateOverlayPositions() {
+  if (!primaryOverlayEl || !symmetryGuideH || !symmetryGuideV || !manualState) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const state = store.get();
+  
+  // Calculate cell size based on canvas size
+  const canvasW = canvas.width;
+  const canvasH = canvas.height;
+  const gridW = state.gridWidth;
+  const gridH = state.gridHeight;
+  
+  // Account for borders (rough estimate, ideally we'd get this from renderer)
+  const outerBorderWidth = (state.outerBorder?.lineCount || 0) * (state.outerBorder?.widthFraction || 1);
+  const cellSize = Math.min(
+    (canvasW - outerBorderWidth * 2) / gridW,
+    (canvasH - outerBorderWidth * 2) / gridH
+  );
+  
+  // For manual mode, we show the repeat block, not the full grid
+  const repeatW = manualState.repeatWidth;
+  const repeatH = manualState.repeatHeight;
+  const halfW = Math.ceil(repeatW / 2);
+  const halfH = Math.ceil(repeatH / 2);
+  
+  // Center the repeat block in the canvas
+  const blockWidth = repeatW * cellSize;
+  const blockHeight = repeatH * cellSize;
+  const offsetX = (rect.width - blockWidth) / 2;
+  const offsetY = (rect.height - blockHeight) / 2;
+  
+  // Position primary segment overlay
+  primaryOverlayEl.style.left = `${offsetX}px`;
+  primaryOverlayEl.style.top = `${offsetY}px`;
+  primaryOverlayEl.style.width = `${halfW * cellSize}px`;
+  primaryOverlayEl.style.height = `${halfH * cellSize}px`;
+  
+  // Position symmetry guides (center lines)
+  const centerX = offsetX + blockWidth / 2;
+  const centerY = offsetY + blockHeight / 2;
+  
+  symmetryGuideH.style.left = `${offsetX}px`;
+  symmetryGuideH.style.top = `${centerY - 1}px`;
+  symmetryGuideH.style.width = `${blockWidth}px`;
+  
+  symmetryGuideV.style.left = `${centerX - 1}px`;
+  symmetryGuideV.style.top = `${offsetY}px`;
+  symmetryGuideV.style.height = `${blockHeight}px`;
+  
+  // Update manual overlay positions
+  if (manualOverlay) {
+    manualOverlay.update(cellSize, offsetX, offsetY);
+  }
+}
+
+function hideManualOverlays() {
+  if (primaryOverlayEl) primaryOverlayEl.style.display = "none";
+  if (symmetryGuideH) symmetryGuideH.style.display = "none";
+  if (symmetryGuideV) symmetryGuideV.style.display = "none";
+  if (manualOverlay) {
+    manualOverlay.destroy();
+    manualOverlay = null;
+  }
+}
+
+function showManualOverlays() {
+  if (primaryOverlayEl) primaryOverlayEl.style.display = "block";
+  if (symmetryGuideH) symmetryGuideH.style.display = "block";
+  if (symmetryGuideV) symmetryGuideV.style.display = "block";
+}
+
+function setMode(mode: EditorMode) {
+  if (mode === currentMode) return;
+  currentMode = mode;
+  
+  const sidebar = document.querySelector(".sidebar") as HTMLElement;
+  
+  if (mode === "random") {
+    sidebar.classList.remove("manual-mode");
+    sidebar.classList.add("random-mode");
+    hideManualOverlays();
+    redraw();
+  } else {
+    sidebar.classList.remove("random-mode");
+    sidebar.classList.add("manual-mode");
+    
+    // Initialize or resize manual state if needed
+    const state = store.get();
+    if (!manualState || 
+        manualState.repeatWidth !== state.repeatWidth || 
+        manualState.repeatHeight !== state.repeatHeight) {
+      initManualState();
+    }
+    
+    setupManualOverlay();
+    showManualOverlays();
+    redrawManual();
+  }
+  
+  // Update tab buttons
+  document.getElementById("mode-random")?.classList.toggle("active", mode === "random");
+  document.getElementById("mode-manual")?.classList.toggle("active", mode === "manual");
+}
+
+function redrawManual() {
+  if (!manualState) return;
+  
+  // Generate full tile from primary segment
+  const tile = generateFromPrimary(manualState);
+  
+  // For now, just show the single tile (not tiled across grid)
+  currentGrid = tile;
+  
+  const state = store.get();
+  const colorMap = buildColorMap(state);
+  
+  // Render with a modified state that uses the manual tile dimensions
+  const manualRenderState = {
+    ...state,
+    gridWidth: manualState.repeatWidth,
+    gridHeight: manualState.repeatHeight,
+    // Disable borders for manual mode for now
+    outerBorder: { lineCount: 0, colors: [], widthFraction: 1 },
+    sashingBorder: { lineCount: 0, colors: [], widthFraction: 1 },
+  };
+  
+  render(canvas, currentGrid, manualRenderState, colorMap);
+  updateOverlayPositions();
+}
 
 const CUSTOM_PALETTES_KEY = "quilt.customPalettes";
 function loadCustomPalettes(): Palette[] {
@@ -307,7 +517,19 @@ function scheduleRedraw() {
     return;
   }
   
-  redraw();
+  if (currentMode === "manual") {
+    // Check if repeat size changed
+    const state = store.get();
+    if (manualState && 
+        (manualState.repeatWidth !== state.repeatWidth || 
+         manualState.repeatHeight !== state.repeatHeight)) {
+      initManualState();
+      setupManualOverlay();
+    }
+    redrawManual();
+  } else {
+    redraw();
+  }
   
   redrawTimeout = setTimeout(() => {
     redrawTimeout = null;
@@ -334,7 +556,12 @@ setOnFabricLoaded(() => {
 store.subscribe(scheduleRedraw);
 
 // Re-render on resize (just repaint)
-window.addEventListener("resize", repaint);
+window.addEventListener("resize", () => {
+  repaint();
+  if (currentMode === "manual") {
+    updateOverlayPositions();
+  }
+});
 
 // Wire up UI controls
 bindUI(store, { onExportPng: downloadPng, onExportSvg: downloadSvg, onExportCuttingList: downloadCuttingList });
@@ -394,6 +621,16 @@ dropTarget.addEventListener("drop", async (e) => {
     await handleLoadFile(file);
   }
 });
+
+// --- Mode tab handlers ---
+const modeRandomBtn = document.getElementById("mode-random");
+const modeManualBtn = document.getElementById("mode-manual");
+
+modeRandomBtn?.addEventListener("click", () => setMode("random"));
+modeManualBtn?.addEventListener("click", () => setMode("manual"));
+
+// Initialize with random mode
+document.querySelector(".sidebar")?.classList.add("random-mode");
 
 // Initial render
 redraw();
