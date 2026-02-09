@@ -851,9 +851,8 @@ export function bindUI(
 
   function updateAuthUI() {
     if (currentUser) {
-      const shortName = currentUser.displayName.split(' ')[0];
-      shareCurrentBtn.innerHTML = `Share as <strong>${shortName}</strong>`;
-      shareCurrentBtn.title = `Sharing as "${currentUser.displayName}". Click to share a palette.`;
+      shareCurrentBtn.innerHTML = `Share Palette`;
+      shareCurrentBtn.title = `Share the current palette as ${currentUser.displayName}`;
     } else {
       shareCurrentBtn.textContent = "Sign in to Share";
       shareCurrentBtn.title = "Sign in with Google to share palettes";
@@ -1034,30 +1033,77 @@ export function bindUI(
     }, 300);
   });
 
-  shareCurrentBtn.addEventListener("click", async () => {
-    // Check if logged in
-    if (!currentUser) {
-      window.location.href = getLoginUrl();
+  // --- Share Confirmation Modal ---
+  const shareConfirmModal = $("share-confirm-modal");
+  const sharePreviewSwatches = $("share-preview-swatches");
+  const sharePaletteName = $("share-palette-name") as HTMLInputElement;
+  const shareAuthorRow = $("share-author-row");
+  const shareAuthorName = $("share-author-name") as HTMLInputElement;
+  const shareCancelBtn = $("share-cancel");
+  const shareConfirmBtn = $("share-confirm");
+
+  function openShareModal() {
+    const state = store.get();
+    const palettes = getAllPalettes(state.customPalettes);
+    const currentPalette = palettes[state.paletteIndex % palettes.length];
+    
+    // Render preview swatches
+    sharePreviewSwatches.innerHTML = "";
+    const swatchesToShow = currentPalette.swatches || currentPalette.colors;
+    swatchesToShow.slice(0, 6).forEach(swatch => {
+      const dot = document.createElement("div");
+      dot.style.width = "32px";
+      dot.style.height = "32px";
+      dot.style.borderRadius = "4px";
+      dot.style.border = "1px solid #3a3a5a";
+      if (isFabricSwatch(swatch)) {
+        dot.style.backgroundImage = `url(${swatch.dataUrl})`;
+        dot.style.backgroundSize = "cover";
+      } else {
+        dot.style.backgroundColor = swatch;
+      }
+      sharePreviewSwatches.appendChild(dot);
+    });
+    
+    // Pre-fill palette name
+    sharePaletteName.value = currentPalette.name || "My Palette";
+    
+    // Show author name field for first-time sharers
+    const isFirstShare = currentUser && currentUser.displayName === currentUser.name;
+    shareAuthorRow.style.display = isFirstShare ? "block" : "none";
+    if (isFirstShare && currentUser) {
+      shareAuthorName.value = currentUser.displayName;
+    }
+    
+    shareConfirmModal.classList.add("open");
+  }
+
+  function closeShareModal() {
+    shareConfirmModal.classList.remove("open");
+  }
+
+  shareCancelBtn.addEventListener("click", closeShareModal);
+  
+  shareConfirmModal.addEventListener("click", (e) => {
+    if (e.target === shareConfirmModal) closeShareModal();
+  });
+
+  shareConfirmBtn.addEventListener("click", async () => {
+    const name = sharePaletteName.value.trim();
+    if (!name) {
+      sharePaletteName.focus();
       return;
     }
     
-    // First time? Let them set a display name
-    const isFirstShare = currentUser.displayName === currentUser.name;
-    if (isFirstShare) {
-      const nickname = prompt(
-        "Choose a name to publish under (this will be shown with your shared palettes):",
-        currentUser.displayName
-      );
-      if (nickname === null) return; // Cancelled
-      
-      if (nickname.trim() && nickname.trim() !== currentUser.displayName) {
-        try {
-          currentUser = await updateDisplayName(nickname.trim());
-          updateAuthUI();
-        } catch (err) {
-          alert("Failed to update name: " + (err as Error).message);
-          return;
-        }
+    // Update display name if provided
+    const isFirstShare = currentUser && currentUser.displayName === currentUser.name;
+    if (isFirstShare && shareAuthorName.value.trim()) {
+      try {
+        currentUser = await updateDisplayName(shareAuthorName.value.trim());
+        updateAuthUI();
+      } catch (err) {
+        alert("Failed to update name: " + (err as Error).message);
+        return;
       }
     }
     
@@ -1065,11 +1111,10 @@ export function bindUI(
     const palettes = getAllPalettes(state.customPalettes);
     const currentPalette = palettes[state.paletteIndex % palettes.length];
     
-    const name = prompt("Name for your shared palette:", currentPalette.name || "My Palette");
-    if (!name) return;
-    
     try {
-      // Get fabric data URLs if present
+      shareConfirmBtn.textContent = "Sharing...";
+      shareConfirmBtn.setAttribute("disabled", "true");
+      
       const fabricDataUrls = currentPalette.swatches
         ?.filter(isFabricSwatch)
         .map(s => s.dataUrl);
@@ -1082,11 +1127,29 @@ export function bindUI(
           undefined
       );
       
-      alert("Palette shared successfully! 🎉");
+      closeShareModal();
       loadSharedPalettes(); // Refresh list
+      
+      // Brief success feedback
+      shareCurrentBtn.textContent = "Shared! ✓";
+      setTimeout(() => updateAuthUI(), 1500);
+      
     } catch (err) {
       alert("Failed to share palette: " + (err as Error).message);
+    } finally {
+      shareConfirmBtn.textContent = "Share";
+      shareConfirmBtn.removeAttribute("disabled");
     }
+  });
+
+  shareCurrentBtn.addEventListener("click", async () => {
+    // Check if logged in
+    if (!currentUser) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    
+    openShareModal();
   });
 
   // --- Sync UI from state ---

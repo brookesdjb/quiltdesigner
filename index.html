@@ -1337,6 +1337,26 @@
     </div>
   </div>
 
+  <!-- Share Palette Confirmation Modal -->
+  <div class="palette-modal-overlay" id="share-confirm-modal">
+    <div class="palette-modal" style="max-width: 340px;">
+      <h2>Share This Palette</h2>
+      <div class="palette-editor">
+        <div id="share-preview-swatches" style="display: flex; gap: 6px; justify-content: center; margin-bottom: 12px;"></div>
+        <label style="font-size: 0.8rem; color: #8888aa;">Palette name:</label>
+        <input type="text" id="share-palette-name" placeholder="My Palette" />
+        <div id="share-author-row" style="display: none;">
+          <label style="font-size: 0.8rem; color: #8888aa; margin-top: 8px; display: block;">Your name (shown publicly):</label>
+          <input type="text" id="share-author-name" placeholder="Your name" />
+        </div>
+        <div class="palette-modal-actions">
+          <button class="btn btn-secondary" id="share-cancel">Cancel</button>
+          <button class="btn" id="share-confirm">Share</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Shared Palettes Modal -->
   <div class="shared-palettes-overlay" id="shared-palettes-modal">
     <div class="shared-palettes-modal">
