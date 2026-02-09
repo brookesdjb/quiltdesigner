@@ -1149,6 +1149,7 @@ export function bindUI(
       return;
     }
     
+    closeSharedPalettesModal();
     openShareModal();
   });
 
