@@ -154,3 +154,76 @@
   color: #666;
 }
 
+/* Share Design Modal */
+.share-design-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #1a1a2e;
+  border-radius: 8px;
+}
+
+.share-design-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.share-palette-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a4a;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.share-palette-select:focus {
+  outline: none;
+  border-color: #6c63ff;
+}
+
+.share-palette-select option {
+  background: #2a2a4a;
+  color: #e0e0e0;
+}
+
+.share-new-palette {
+  margin-top: 8px;
+  padding: 12px;
+  background: #252542;
+  border-radius: 6px;
+}
+
+.share-new-palette input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a4a;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.share-new-palette input:focus {
+  outline: none;
+  border-color: #6c63ff;
+}
+
+.share-default-palette-msg {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #2d4a3e 0%, #1a3a2e 100%);
+  border: 1px solid #3d6a5e;
+  border-radius: 8px;
+  color: #8fc9a9;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  text-align: center;
+}
+

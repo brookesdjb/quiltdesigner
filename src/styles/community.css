@@ -180,12 +180,13 @@
 }
 
 .card-preview {
-  aspect-ratio: 4/3;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   padding: 12px;
   gap: 6px;
   background: #252542;
+  aspect-ratio: 3/2;
 }
 
 .card-preview.design-preview {
@@ -199,9 +200,6 @@
 }
 
 .card-swatch {
-  flex: 1 1 calc(33.333% - 4px);
-  min-width: 40px;
-  aspect-ratio: 1;
   border-radius: 6px;
   background-size: cover;
   background-position: center;

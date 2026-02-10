@@ -13,6 +13,7 @@ export const KEYS = {
   palette: (id: string) => `palette:${id}`,
   paletteList: "palettes:list",  // Sorted set by timestamp
   paletteLikes: (id: string) => `palette:${id}:likes`,
+  paletteByHash: (hash: string) => `palette:hash:${hash}`, // Deduplication: color hash → palette ID
   
   // Designs
   design: (id: string) => `design:${id}`,

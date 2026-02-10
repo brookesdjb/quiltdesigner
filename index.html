@@ -113,51 +113,6 @@
       </div>
     </div>
 
-    <div class="control-group random-only">
-      <label>Symmetry</label>
-      <div id="symmetry-modes"></div>
-      <div class="slider-row">
-        <input type="range" id="symmetry" min="0" max="100" value="100" />
-        <span class="val" id="symmetry-val">100%</span>
-      </div>
-    </div>
-
-    <div class="control-group random-only">
-      <label>Shapes &amp; Ratios</label>
-      <div class="shape-toggles">
-        <div class="shape-item">
-          <div class="shape-header">
-            <input type="checkbox" id="shape-square" checked />
-            <span>Square</span>
-          </div>
-          <div class="slider-row">
-            <input type="range" id="ratio-square" min="0" max="100" value="33" />
-            <span class="val" id="ratio-square-val">33</span>
-          </div>
-        </div>
-        <div class="shape-item">
-          <div class="shape-header">
-            <input type="checkbox" id="shape-hst" checked />
-            <span>Half-Square Triangle</span>
-          </div>
-          <div class="slider-row">
-            <input type="range" id="ratio-hst" min="0" max="100" value="34" />
-            <span class="val" id="ratio-hst-val">34</span>
-          </div>
-        </div>
-        <div class="shape-item">
-          <div class="shape-header">
-            <input type="checkbox" id="shape-qst" checked />
-            <span>Quarter-Square Triangle</span>
-          </div>
-          <div class="slider-row">
-            <input type="range" id="ratio-qst" min="0" max="100" value="33" />
-            <span class="val" id="ratio-qst-val">33</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="control-group manual-only">
       <label>How to Edit</label>
       <p class="hint" style="margin: 0; line-height: 1.4;">
@@ -174,7 +129,6 @@
       <div class="btn-row">
         <button class="btn btn-secondary" id="create-palette-btn">+ Create</button>
         <button class="btn btn-secondary" id="browse-palettes-btn">🌐 Browse</button>
-        <button class="btn btn-secondary" id="share-current-palette-btn">↗ Share</button>
       </div>
     </div>
 
@@ -232,16 +186,67 @@
       </div>
     </div>
 
+    <div class="control-group random-only">
+      <details class="advanced-section" id="advanced-section">
+        <summary>Advanced</summary>
+        <div class="advanced-content">
+          <label>Symmetry</label>
+          <div id="symmetry-modes"></div>
+          <div class="slider-row">
+            <input type="range" id="symmetry" min="0" max="100" value="100" />
+            <span class="val" id="symmetry-val">100%</span>
+          </div>
+
+          <label style="margin-top: 12px;">Shapes &amp; Ratios</label>
+          <div class="shape-toggles">
+            <div class="shape-item">
+              <div class="shape-header">
+                <input type="checkbox" id="shape-square" checked />
+                <span>Square</span>
+              </div>
+              <div class="slider-row">
+                <input type="range" id="ratio-square" min="0" max="100" value="33" />
+                <span class="val" id="ratio-square-val">33</span>
+              </div>
+            </div>
+            <div class="shape-item">
+              <div class="shape-header">
+                <input type="checkbox" id="shape-hst" checked />
+                <span>Half-Square Triangle</span>
+              </div>
+              <div class="slider-row">
+                <input type="range" id="ratio-hst" min="0" max="100" value="34" />
+                <span class="val" id="ratio-hst-val">34</span>
+              </div>
+            </div>
+            <div class="shape-item">
+              <div class="shape-header">
+                <input type="checkbox" id="shape-qst" checked />
+                <span>Quarter-Square Triangle</span>
+              </div>
+              <div class="slider-row">
+                <input type="range" id="ratio-qst" min="0" max="100" value="33" />
+                <span class="val" id="ratio-qst-val">33</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+
     <div class="control-group">
       <label>Save / Load</label>
-      <div class="btn-row">
-        <button class="btn" id="export-png">Save PNG</button>
-        <button class="btn" id="export-svg">Save SVG</button>
+      <div class="save-image-row">
+        <button class="btn" id="export-image">Save Image</button>
+        <select id="export-format" class="format-select">
+          <option value="png" selected>PNG</option>
+          <option value="svg">SVG</option>
+        </select>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-secondary" id="load-design">Load Design</button>
-        <button class="btn btn-secondary" id="export-cutting-list">Cutting List</button>
-      </div>
+      <button class="btn full-width" id="share-design-btn">↗ Share Design</button>
+      <button class="btn btn-secondary full-width" id="export-cutting-list">Export Cutting List</button>
+      <div style="height: 8px;"></div>
+      <button class="btn btn-secondary full-width" id="load-design">Load Design</button>
       <input type="file" id="load-design-input" accept=".png,.svg" style="display: none;" />
       <p class="hint">Drag & drop a saved PNG/SVG to load</p>
       <a href="https://ko-fi.com/thearchitech" target="_blank" rel="noopener" class="kofi-link">
@@ -369,6 +374,53 @@
         <div class="palette-modal-actions">
           <button class="btn btn-secondary" id="share-cancel">Cancel</button>
           <button class="btn" id="share-confirm">Share</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share Design Modal -->
+  <div class="palette-modal-overlay" id="share-design-modal">
+    <div class="palette-modal share-modal-wide">
+      <h2>Share This Design</h2>
+      <div class="palette-editor">
+        <div class="share-design-preview" id="share-design-thumbnail">
+          <!-- Thumbnail inserted here -->
+        </div>
+        
+        <div class="share-form-row">
+          <label>Design name</label>
+          <input type="text" id="share-design-name" placeholder="My Quilt Design" />
+        </div>
+        
+        <div class="share-form-row">
+          <label>Description <span class="optional">(optional)</span></label>
+          <textarea id="share-design-desc" placeholder="Tell others about this design..." rows="2"></textarea>
+        </div>
+        
+        <div class="share-default-palette-msg" id="share-design-default-palette" style="display: none;"></div>
+        
+        <div class="share-form-row" id="share-design-palette-selector">
+          <label>Link to Palette</label>
+          <p class="hint" style="margin: 0 0 8px 0;">Designs must be linked to a shared palette so others can use the same colors.</p>
+          <select id="share-design-palette" class="share-palette-select">
+            <option value="">-- Select a shared palette --</option>
+          </select>
+          <button class="btn btn-secondary" id="share-palette-first-btn" style="margin-top: 8px;">+ Share Current Palette First</button>
+          <div id="share-new-palette-section" class="share-new-palette" style="display: none;">
+            <input type="text" id="share-new-palette-name" placeholder="Palette name" />
+            <p class="hint" style="margin: 4px 0 0 0;">Your current palette will be shared along with the design.</p>
+          </div>
+        </div>
+        
+        <div class="share-form-row">
+          <label>Tags <span class="optional">(optional, comma-separated)</span></label>
+          <input type="text" id="share-design-tags" placeholder="e.g., modern, stars, beginner" />
+        </div>
+        
+        <div class="palette-modal-actions">
+          <button class="btn btn-secondary" id="share-design-cancel">Cancel</button>
+          <button class="btn" id="share-design-confirm" disabled>Share Design</button>
         </div>
       </div>
     </div>

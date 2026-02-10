@@ -12,12 +12,13 @@ import { simplifyGrid } from "./simplify";
 import { render, renderSvg, renderToCanvas } from "./renderer";
 import { bindUI } from "./ui";
 import type { Palette } from "./types";
-import { getAllPalettes } from "./palette";
+import { getAllPalettes, BASE_PALETTES } from "./palette";
 import { preloadFabricSwatches, setOnFabricLoaded, type ColorToSwatchMap } from "./shapes";
 import { embedInPng, embedInSvg, loadCartridgeFromFile } from "./cartridge";
+import { generateName } from "./generations";
 import { addSpriteSheet } from "./spritesheet";
 import { inject } from "@vercel/analytics";
-import { getCurrentUser, getUserPalettes, saveUserPalettes, type User } from "./api-client";
+import { getCurrentUser, getUserPalettes, saveUserPalettes, getLoginUrl, type User } from "./api-client";
 import { 
   createEmptyManualState, 
   generateFromPrimary, 
@@ -26,6 +27,7 @@ import {
 } from "./manual-editor";
 import { initCommunityView, onCommunityEnter, onCommunityLeave } from "./community";
 import type { SharedPalette, SharedDesign } from "./api-client";
+import { initShareDesignModal, openShareDesignModal } from "./ui/share-design";
 
 // Initialize Vercel Analytics
 inject();
@@ -574,7 +576,25 @@ window.addEventListener("resize", () => {
 });
 
 // Wire up UI controls
-bindUI(store, { onExportPng: downloadPng, onExportSvg: downloadSvg, onExportCuttingList: downloadCuttingList });
+bindUI(store, { 
+  onExportImage: (format) => format === 'svg' ? downloadSvg() : downloadPng(), 
+  onExportCuttingList: downloadCuttingList 
+});
+
+// --- Advanced section persistence ---
+const advancedSection = document.getElementById("advanced-section") as HTMLDetailsElement | null;
+const ADVANCED_OPEN_KEY = "quilt.advancedOpen";
+
+if (advancedSection) {
+  // Restore open state
+  const wasOpen = localStorage.getItem(ADVANCED_OPEN_KEY) === "true";
+  if (wasOpen) advancedSection.open = true;
+  
+  // Save state on toggle
+  advancedSection.addEventListener("toggle", () => {
+    localStorage.setItem(ADVANCED_OPEN_KEY, String(advancedSection.open));
+  });
+}
 
 // --- Load design functionality ---
 const loadDesignBtn = document.getElementById("load-design");
@@ -714,11 +734,50 @@ function importSharedPalette(palette: SharedPalette) {
   store.update({ customPalettes, paletteIndex: newPaletteIndex });
 }
 
-function importSharedDesign(design: SharedDesign) {
+async function importSharedDesign(design: SharedDesign) {
   try {
-    // Parse the design data and apply it
     const designState = JSON.parse(design.designData);
-    store.update(designState);
+    
+    // Check if design uses a default/built-in palette
+    if (design.defaultPaletteName) {
+      // Find the matching default palette by name
+      const defaultIndex = BASE_PALETTES.findIndex(
+        p => p.name.toLowerCase() === design.defaultPaletteName!.toLowerCase()
+      );
+      
+      if (defaultIndex >= 0) {
+        // Use the default palette
+        store.update({
+          ...designState,
+          paletteIndex: defaultIndex,
+        });
+        return;
+      }
+      // If not found, fall through to import as custom palette
+    }
+    
+    // Import as custom palette if we have palette colors
+    if (design.paletteColors && design.paletteColors.length > 0) {
+      const customPalettes = [...store.get().customPalettes];
+      const baseCount = BASE_PALETTES.length;
+      
+      const newPalette: Palette = {
+        name: design.paletteName || "Imported Palette",
+        colors: design.paletteColors,
+      };
+      
+      customPalettes.push(newPalette);
+      const newPaletteIndex = baseCount + customPalettes.length - 1;
+      
+      store.update({
+        ...designState,
+        customPalettes,
+        paletteIndex: newPaletteIndex,
+      });
+    } else {
+      // No palette data, just apply the design state
+      store.update(designState);
+    }
   } catch (err) {
     console.error("Failed to import design:", err);
     alert("Failed to load this design. It may be incompatible.");
@@ -740,3 +799,44 @@ if (browsePalettesBtn) {
   browsePalettesBtn.parentNode?.replaceChild(newBtn, browsePalettesBtn);
   newBtn.addEventListener("click", () => switchAppView("community"));
 }
+
+// --- Share Design Modal ---
+function getCanvasThumbnail(): string {
+  const state = store.get();
+  const colorMap = buildColorMap(state);
+  // Render at a smaller size for thumbnail
+  const thumbCanvas = renderToCanvas(currentGrid, state, { 
+    cellSize: 40, 
+    scale: 1, 
+    colorMap 
+  });
+  return thumbCanvas.toDataURL("image/png", 0.8);
+}
+
+function getCurrentPaletteForShare(): Palette {
+  const state = store.get();
+  const palettes = getAllPalettes(state.customPalettes);
+  return palettes[state.paletteIndex % palettes.length];
+}
+
+initShareDesignModal({
+  getCurrentState: () => store.get(),
+  getCurrentPalette: getCurrentPaletteForShare,
+  getCurrentPaletteIndex: () => store.get().paletteIndex,
+  getCanvasThumbnail,
+  getGeneratedName: () => generateName(store.get().seed),
+  onSuccess: () => {
+    alert("Design shared successfully! 🎉");
+  },
+});
+
+// Wire up Share Design button
+const shareDesignBtn = document.getElementById("share-design-btn");
+shareDesignBtn?.addEventListener("click", () => {
+  if (!currentUser) {
+    // Redirect to login
+    window.location.href = getLoginUrl();
+    return;
+  }
+  openShareDesignModal(currentUser);
+});

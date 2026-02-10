@@ -43,11 +43,12 @@ export interface SharedDesign {
   id: string;
   name: string;
   description?: string;
-  paletteId: string;      // Required: links to a shared palette
-  paletteName?: string;   // Denormalized for display
-  paletteColors?: string[]; // Denormalized for card preview
-  designData: string;     // JSON-encoded design state
-  thumbnailUrl?: string;  // Base64 PNG thumbnail for cards
+  paletteId?: string;           // Links to a shared palette (optional if using default)
+  defaultPaletteName?: string;  // Name of built-in palette (if not using shared)
+  paletteName?: string;         // Denormalized for display
+  paletteColors?: string[];     // Denormalized for card preview
+  designData: string;           // JSON-encoded design state
+  thumbnailUrl?: string;        // Base64 PNG thumbnail for cards
   tags?: string[];
   createdAt: number;
   likes: number;
@@ -58,9 +59,10 @@ export interface SharedDesign {
 export interface CreateDesignRequest {
   name: string;
   description?: string;
-  paletteId: string;
-  designData: string;     // JSON-encoded design state
-  thumbnailUrl?: string;  // Base64 PNG thumbnail
+  paletteId?: string;           // Either paletteId or defaultPaletteName required
+  defaultPaletteName?: string;  // Name of built-in palette
+  designData: string;           // JSON-encoded design state
+  thumbnailUrl?: string;        // Base64 PNG thumbnail
   tags?: string[];
 }
 

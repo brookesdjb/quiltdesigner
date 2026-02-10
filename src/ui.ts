@@ -45,8 +45,7 @@ function formatDate(timestamp: number): string {
 export function bindUI(
   store: Store,
   actions?: { 
-    onExportPng?: () => void; 
-    onExportSvg?: () => void; 
+    onExportImage?: (format: 'png' | 'svg') => void; 
     onExportCuttingList?: () => void;
   }
 ): void {
@@ -251,7 +250,7 @@ export function bindUI(
       
       // Use swatches if available, otherwise colors
       const swatchesToShow = palette.swatches || palette.colors;
-      for (let i = 0; i < Math.min(5, swatchesToShow.length); i++) {
+      for (let i = 0; i < Math.min(6, swatchesToShow.length); i++) {
         const swatch = swatchesToShow[i];
         const dot = document.createElement("span");
         dot.className = "swatch-dot";
@@ -829,14 +828,13 @@ export function bindUI(
   });
 
   // --- Export buttons ---
-  const exportPngBtn = document.getElementById("export-png");
-  if (exportPngBtn && actions?.onExportPng) {
-    exportPngBtn.addEventListener("click", actions.onExportPng);
-  }
-
-  const exportSvgBtn = document.getElementById("export-svg");
-  if (exportSvgBtn && actions?.onExportSvg) {
-    exportSvgBtn.addEventListener("click", actions.onExportSvg);
+  const exportImageBtn = document.getElementById("export-image");
+  const exportFormatSelect = document.getElementById("export-format") as HTMLSelectElement | null;
+  if (exportImageBtn && actions?.onExportImage) {
+    exportImageBtn.addEventListener("click", () => {
+      const format = (exportFormatSelect?.value || 'png') as 'png' | 'svg';
+      actions.onExportImage!(format);
+    });
   }
 
   const exportCuttingListBtn = document.getElementById("export-cutting-list");
@@ -845,7 +843,6 @@ export function bindUI(
   }
 
   // --- Auth & Share ---
-  const shareCurrentBtn = $("share-current-palette-btn");
   const authBtn = $("auth-btn");
   let currentUser: User | null = null;
 
@@ -865,40 +862,20 @@ export function bindUI(
       authBtn.title = "Sign in with Google";
       authBtn.onclick = () => { window.location.href = getLoginUrl(); };
     }
-    
-    // Update sidebar share button
-    if (currentUser) {
-      shareCurrentBtn.innerHTML = `↗ Share`;
-      shareCurrentBtn.title = `Share the current palette as ${currentUser.displayName}`;
-    } else {
-      shareCurrentBtn.textContent = "↗ Share";
-      shareCurrentBtn.title = "Sign in to share palettes";
-    }
   }
 
-  // Initialize share modal
+  // Initialize share modal (used when sharing custom palettes via design share)
   initShareModal({
     getCurrentPalette: () => {
       const state = store.get();
       const palettes = getAllPalettes(state.customPalettes);
       return palettes[state.paletteIndex % palettes.length];
     },
-    onSuccess: () => {
-      shareCurrentBtn.textContent = "Shared! ✓";
-      setTimeout(() => updateAuthUI(), 1500);
-    },
+    onSuccess: () => {},
     onUserUpdate: (user) => {
       currentUser = user;
       updateAuthUI();
     },
-  });
-
-  shareCurrentBtn.addEventListener("click", async () => {
-    if (!currentUser) {
-      window.location.href = getLoginUrl();
-      return;
-    }
-    openShareModal(currentUser);
   });
   
   // Check auth on load

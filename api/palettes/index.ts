@@ -13,6 +13,13 @@ function generateId(): string {
   return id;
 }
 
+// Create a hash from colors for deduplication
+// Normalizes to uppercase and sorts for consistent matching
+function hashColors(colors: string[]): string {
+  const normalized = colors.map(c => c.toUpperCase().trim()).sort();
+  return normalized.join("|");
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -101,6 +108,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
+      // Check for duplicate palette (same colors, ignoring order)
+      const colorHash = hashColors(body.colors);
+      const existingPaletteId = await redis.get<string>(KEYS.paletteByHash(colorHash));
+      
+      if (existingPaletteId) {
+        // Palette with these colors already exists
+        const existingPalette = await redis.get<SharedPalette>(KEYS.palette(existingPaletteId));
+        if (existingPalette) {
+          // Return existing palette with a flag indicating it was a duplicate
+          return res.status(200).json({
+            ...existingPalette,
+            _duplicate: true,
+            _message: `This palette was already shared as "${existingPalette.name}" by ${existingPalette.userName || "someone"}`,
+          });
+        }
+      }
+
       const id = generateId();
       const now = Date.now();
       
@@ -119,9 +143,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         likes: 0,
       };
 
-      // Store palette and add to sorted set
+      // Store palette, add to sorted set, and store hash for deduplication
       await redis.set(KEYS.palette(id), palette);
       await redis.zadd(KEYS.paletteList, { score: now, member: id });
+      await redis.set(KEYS.paletteByHash(colorHash), id);
 
       return res.status(201).json(palette);
     }

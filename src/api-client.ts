@@ -42,7 +42,8 @@ export interface SharedDesign {
   id: string;
   name: string;
   description?: string;
-  paletteId: string;
+  paletteId?: string;           // Links to shared palette (optional if using default)
+  defaultPaletteName?: string;  // Name of built-in palette
   paletteName?: string;
   paletteColors?: string[];
   designData: string;
@@ -86,6 +87,11 @@ export async function fetchPalette(id: string): Promise<SharedPalette> {
   return res.json();
 }
 
+export interface SharePaletteResult extends SharedPalette {
+  _duplicate?: boolean;
+  _message?: string;
+}
+
 export async function sharePalette(
   name: string, 
   colors: string[], 
@@ -95,7 +101,7 @@ export async function sharePalette(
     swatchMeta?: SwatchMeta[];
     tags?: string[];
   }
-): Promise<SharedPalette> {
+): Promise<SharePaletteResult> {
   const res = await fetch(`${API_BASE}/palettes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -166,7 +172,8 @@ export async function fetchDesign(id: string): Promise<SharedDesign> {
 
 export async function shareDesign(data: {
   name: string;
-  paletteId: string;
+  paletteId?: string;
+  defaultPaletteName?: string;
   designData: string;
   description?: string;
   thumbnailUrl?: string;

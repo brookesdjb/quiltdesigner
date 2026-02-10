@@ -179,7 +179,7 @@ async function handleShare() {
       .map(t => t.trim().toLowerCase())
       .filter(t => t.length > 0);
     
-    await sharePalette(
+    const result = await sharePalette(
       name,
       palette.colors,
       fabricDataUrls?.some(u => u) ? fabricDataUrls : undefined,
@@ -191,7 +191,13 @@ async function handleShare() {
     );
     
     closeShareModal();
-    callbacks.onSuccess();
+    
+    // Show duplicate message if applicable
+    if (result._duplicate && result._message) {
+      alert(result._message);
+    } else {
+      callbacks.onSuccess();
+    }
     
   } catch (err) {
     alert("Failed to share palette: " + (err as Error).message);

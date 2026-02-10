@@ -115,19 +115,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       const body = req.body as CreateDesignRequest;
       
-      // Validate
-      if (!body.name || !body.paletteId || !body.designData) {
-        return res.status(400).json({ error: "Name, paletteId, and designData are required" });
+      // Validate - need either paletteId OR defaultPaletteName
+      if (!body.name || !body.designData) {
+        return res.status(400).json({ error: "Name and designData are required" });
+      }
+      
+      if (!body.paletteId && !body.defaultPaletteName) {
+        return res.status(400).json({ error: "Either paletteId or defaultPaletteName is required" });
       }
       
       if (body.name.length > 100) {
         return res.status(400).json({ error: "Name too long (max 100 chars)" });
-      }
-      
-      // Verify the palette exists and is shared
-      const palette = await redis.get<SharedPalette>(KEYS.palette(body.paletteId));
-      if (!palette) {
-        return res.status(400).json({ error: "Palette not found. You must link to a shared palette." });
       }
       
       // Check design data size (limit to ~1MB to avoid abuse)
@@ -140,6 +138,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: "Thumbnail too large" });
       }
 
+      let paletteName: string;
+      let paletteColors: string[];
+      let paletteId: string | undefined;
+      
+      if (body.paletteId) {
+        // Verify the shared palette exists
+        const palette = await redis.get<SharedPalette>(KEYS.palette(body.paletteId));
+        if (!palette) {
+          return res.status(400).json({ error: "Palette not found. You must link to a shared palette." });
+        }
+        paletteName = palette.name;
+        paletteColors = palette.colors.slice(0, 6);
+        paletteId = body.paletteId;
+      } else {
+        // Using a default/built-in palette - extract colors from designData
+        paletteName = body.defaultPaletteName!;
+        try {
+          const designState = JSON.parse(body.designData);
+          // Colors should be included in the thumbnail or we trust the client
+          paletteColors = designState.paletteColors || [];
+        } catch {
+          paletteColors = [];
+        }
+      }
+
       const id = generateId();
       const now = Date.now();
       
@@ -147,9 +170,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         id,
         name: body.name.trim(),
         description: body.description?.trim(),
-        paletteId: body.paletteId,
-        paletteName: palette.name,
-        paletteColors: palette.colors.slice(0, 6),
+        paletteId,
+        defaultPaletteName: body.defaultPaletteName,
+        paletteName,
+        paletteColors,
         designData: body.designData,
         thumbnailUrl: body.thumbnailUrl,
         tags: body.tags?.map(t => t.trim().toLowerCase()).filter(Boolean),
@@ -159,10 +183,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         likes: 0,
       };
 
-      // Store design, add to sorted set, and link to palette
+      // Store design and add to sorted set
       await redis.set(KEYS.design(id), design);
       await redis.zadd(KEYS.designList, { score: now, member: id });
-      await redis.sadd(KEYS.designsByPalette(body.paletteId), id);
+      
+      // Link to palette if using a shared one
+      if (paletteId) {
+        await redis.sadd(KEYS.designsByPalette(paletteId), id);
+      }
 
       return res.status(201).json(design);
     }
