@@ -923,6 +923,162 @@
       flex: 1;
     }
 
+    /* Enhanced Share Modal */
+    .share-modal-wide {
+      max-width: 480px !important;
+    }
+
+    .share-preview-swatches {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .share-swatch {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background-size: cover;
+      background-position: center;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .share-swatch:hover {
+      transform: scale(1.1);
+    }
+
+    .share-swatch.active {
+      border-color: #6c63ff;
+    }
+
+    .share-swatch.has-meta::after {
+      content: "✓";
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      background: #6c63ff;
+      color: white;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .share-swatch {
+      position: relative;
+    }
+
+    .share-form-row {
+      margin-bottom: 12px;
+    }
+
+    .share-form-row label {
+      display: block;
+      font-size: 0.8rem;
+      color: #8888aa;
+      margin-bottom: 4px;
+    }
+
+    .share-form-row label .optional {
+      color: #666;
+      font-weight: normal;
+    }
+
+    .share-form-row input,
+    .share-form-row textarea {
+      width: 100%;
+      padding: 8px 12px;
+      background: #2a2a4a;
+      border: 1px solid #3a3a5a;
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+
+    .share-form-row textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .share-form-row input:focus,
+    .share-form-row textarea:focus {
+      outline: none;
+      border-color: #6c63ff;
+    }
+
+    .share-fabric-section {
+      margin: 16px 0;
+      padding: 12px;
+      background: #252542;
+      border-radius: 8px;
+    }
+
+    .share-fabric-section > label {
+      display: block;
+      font-size: 0.8rem;
+      color: #8888aa;
+      margin-bottom: 8px;
+    }
+
+    .share-fabric-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .share-fabric-item {
+      display: none;
+      gap: 10px;
+      padding: 10px;
+      background: #1a1a2e;
+      border-radius: 6px;
+      align-items: flex-start;
+    }
+
+    .share-fabric-item.active {
+      display: flex;
+    }
+
+    .share-fabric-swatch {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      background-size: cover;
+      flex-shrink: 0;
+    }
+
+    .share-fabric-fields {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .share-fabric-fields input {
+      padding: 6px 10px;
+      background: #2a2a4a;
+      border: 1px solid #3a3a5a;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-size: 0.8rem;
+    }
+
+    .share-fabric-fields input:focus {
+      outline: none;
+      border-color: #6c63ff;
+    }
+
+    .share-fabric-fields input::placeholder {
+      color: #666;
+    }
+
     /* Canvas area */
     .canvas-area {
       flex: 1;
@@ -1953,16 +2109,36 @@
 
   <!-- Share Palette Confirmation Modal -->
   <div class="palette-modal-overlay" id="share-confirm-modal">
-    <div class="palette-modal" style="max-width: 340px;">
+    <div class="palette-modal share-modal-wide">
       <h2>Share This Palette</h2>
       <div class="palette-editor">
-        <div id="share-preview-swatches" style="display: flex; gap: 6px; justify-content: center; margin-bottom: 12px;"></div>
-        <label style="font-size: 0.8rem; color: #8888aa;">Palette name:</label>
-        <input type="text" id="share-palette-name" placeholder="My Palette" />
-        <div id="share-author-row" style="display: none;">
-          <label style="font-size: 0.8rem; color: #8888aa; margin-top: 8px; display: block;">Your name (shown publicly):</label>
+        <div id="share-preview-swatches" class="share-preview-swatches"></div>
+        
+        <div class="share-form-row">
+          <label>Palette name</label>
+          <input type="text" id="share-palette-name" placeholder="My Palette" />
+        </div>
+        
+        <div class="share-form-row">
+          <label>Description <span class="optional">(optional)</span></label>
+          <textarea id="share-palette-desc" placeholder="Tell others about this palette..." rows="2"></textarea>
+        </div>
+        
+        <div id="share-author-row" class="share-form-row" style="display: none;">
+          <label>Your name <span class="optional">(shown publicly)</span></label>
           <input type="text" id="share-author-name" placeholder="Your name" />
         </div>
+        
+        <div class="share-fabric-section" id="share-fabric-section">
+          <label>Fabric Details <span class="optional">(optional - click swatches above to edit)</span></label>
+          <div id="share-fabric-list" class="share-fabric-list"></div>
+        </div>
+        
+        <div class="share-form-row">
+          <label>Tags <span class="optional">(optional, comma-separated)</span></label>
+          <input type="text" id="share-palette-tags" placeholder="e.g., modern, christmas, baby" />
+        </div>
+        
         <div class="palette-modal-actions">
           <button class="btn btn-secondary" id="share-cancel">Cancel</button>
           <button class="btn" id="share-confirm">Share</button>
