@@ -1037,40 +1037,123 @@ export function bindUI(
   const shareConfirmModal = $("share-confirm-modal");
   const sharePreviewSwatches = $("share-preview-swatches");
   const sharePaletteName = $("share-palette-name") as HTMLInputElement;
+  const sharePaletteDesc = $("share-palette-desc") as HTMLTextAreaElement;
+  const sharePaletteTags = $("share-palette-tags") as HTMLInputElement;
   const shareAuthorRow = $("share-author-row");
   const shareAuthorName = $("share-author-name") as HTMLInputElement;
+  // shareFabricSection element available at #share-fabric-section if needed
+  const shareFabricList = $("share-fabric-list");
   const shareCancelBtn = $("share-cancel");
   const shareConfirmBtn = $("share-confirm");
+
+  // Track fabric metadata per swatch
+  interface ShareSwatchMeta {
+    fabricName: string;
+    fabricBrand: string;
+    shopUrl: string;
+  }
+  let shareSwatchMeta: ShareSwatchMeta[] = [];
+  let activeShareSwatchIndex = -1;
+
+  function renderShareSwatches(swatches: Swatch[]) {
+    sharePreviewSwatches.innerHTML = "";
+    shareFabricList.innerHTML = "";
+    shareSwatchMeta = swatches.map(() => ({ fabricName: "", fabricBrand: "", shopUrl: "" }));
+    
+    swatches.slice(0, 6).forEach((swatch, idx) => {
+      // Preview swatch (clickable)
+      const dot = document.createElement("div");
+      dot.className = "share-swatch";
+      if (isFabricSwatch(swatch)) {
+        dot.style.backgroundImage = `url(${swatch.dataUrl})`;
+      } else {
+        dot.style.backgroundColor = swatch;
+      }
+      dot.addEventListener("click", () => selectShareSwatch(idx));
+      sharePreviewSwatches.appendChild(dot);
+      
+      // Fabric detail input row
+      const item = document.createElement("div");
+      item.className = "share-fabric-item";
+      item.dataset.index = String(idx);
+      
+      const swatchPreview = document.createElement("div");
+      swatchPreview.className = "share-fabric-swatch";
+      if (isFabricSwatch(swatch)) {
+        swatchPreview.style.backgroundImage = `url(${swatch.dataUrl})`;
+      } else {
+        swatchPreview.style.backgroundColor = swatch;
+      }
+      
+      const fields = document.createElement("div");
+      fields.className = "share-fabric-fields";
+      fields.innerHTML = `
+        <input type="text" placeholder="Fabric name (e.g., Kona Cotton - Nautical)" data-field="fabricName" />
+        <input type="text" placeholder="Brand (e.g., Robert Kaufman)" data-field="fabricBrand" />
+        <input type="url" placeholder="Shop URL (optional)" data-field="shopUrl" />
+      `;
+      
+      // Wire up field changes
+      fields.querySelectorAll("input").forEach(input => {
+        input.addEventListener("input", () => {
+          const field = input.dataset.field as keyof ShareSwatchMeta;
+          shareSwatchMeta[idx][field] = input.value;
+          updateSwatchMetaIndicator(idx);
+        });
+      });
+      
+      item.appendChild(swatchPreview);
+      item.appendChild(fields);
+      shareFabricList.appendChild(item);
+    });
+  }
+  
+  function selectShareSwatch(idx: number) {
+    // Toggle active state
+    if (activeShareSwatchIndex === idx) {
+      activeShareSwatchIndex = -1;
+    } else {
+      activeShareSwatchIndex = idx;
+    }
+    
+    // Update UI
+    sharePreviewSwatches.querySelectorAll(".share-swatch").forEach((el, i) => {
+      el.classList.toggle("active", i === activeShareSwatchIndex);
+    });
+    shareFabricList.querySelectorAll(".share-fabric-item").forEach((el, i) => {
+      el.classList.toggle("active", i === activeShareSwatchIndex);
+    });
+  }
+  
+  function updateSwatchMetaIndicator(idx: number) {
+    const meta = shareSwatchMeta[idx];
+    const hasData = !!(meta.fabricName || meta.fabricBrand || meta.shopUrl);
+    const swatch = sharePreviewSwatches.children[idx];
+    if (swatch) {
+      swatch.classList.toggle("has-meta", hasData);
+    }
+  }
 
   function openShareModal() {
     const state = store.get();
     const palettes = getAllPalettes(state.customPalettes);
     const currentPalette = palettes[state.paletteIndex % palettes.length];
     
-    // Render preview swatches
-    sharePreviewSwatches.innerHTML = "";
+    // Reset state
+    activeShareSwatchIndex = -1;
+    
+    // Render swatches with click handlers
     const swatchesToShow = currentPalette.swatches || currentPalette.colors;
-    swatchesToShow.slice(0, 6).forEach(swatch => {
-      const dot = document.createElement("div");
-      dot.style.width = "32px";
-      dot.style.height = "32px";
-      dot.style.borderRadius = "4px";
-      dot.style.border = "1px solid #3a3a5a";
-      if (isFabricSwatch(swatch)) {
-        dot.style.backgroundImage = `url(${swatch.dataUrl})`;
-        dot.style.backgroundSize = "cover";
-      } else {
-        dot.style.backgroundColor = swatch;
-      }
-      sharePreviewSwatches.appendChild(dot);
-    });
+    renderShareSwatches(swatchesToShow);
     
     // Pre-fill palette name
     sharePaletteName.value = currentPalette.name || "My Palette";
+    sharePaletteDesc.value = "";
+    sharePaletteTags.value = "";
     
     // Show author name field for first-time sharers
     const isFirstShare = currentUser && currentUser.displayName === currentUser.name;
-    shareAuthorRow.style.display = isFirstShare ? "block" : "none";
+    shareAuthorRow.style.display = isFirstShare ? "flex" : "none";
     if (isFirstShare && currentUser) {
       shareAuthorName.value = currentUser.displayName;
     }
@@ -1080,6 +1163,7 @@ export function bindUI(
 
   function closeShareModal() {
     shareConfirmModal.classList.remove("open");
+    activeShareSwatchIndex = -1;
   }
 
   shareCancelBtn.addEventListener("click", closeShareModal);
@@ -1115,20 +1199,36 @@ export function bindUI(
       shareConfirmBtn.textContent = "Sharing...";
       shareConfirmBtn.setAttribute("disabled", "true");
       
+      // Prepare fabric data URLs
       const fabricDataUrls = currentPalette.swatches
-        ?.filter(isFabricSwatch)
-        .map(s => s.dataUrl);
+        ?.map(s => isFabricSwatch(s) ? s.dataUrl : "");
+      
+      // Prepare swatch metadata (only include if any field is filled)
+      const swatchMeta = shareSwatchMeta.map(m => ({
+        fabricName: m.fabricName || undefined,
+        fabricBrand: m.fabricBrand || undefined,
+        shopUrl: m.shopUrl || undefined,
+      }));
+      const hasAnyMeta = swatchMeta.some(m => m.fabricName || m.fabricBrand || m.shopUrl);
+      
+      // Parse tags
+      const tags = sharePaletteTags.value
+        .split(",")
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0);
       
       await sharePalette(
         name,
         currentPalette.colors,
-        fabricDataUrls && fabricDataUrls.length > 0 ? 
-          currentPalette.swatches?.map(s => isFabricSwatch(s) ? s.dataUrl : "") :
-          undefined
+        fabricDataUrls?.some(u => u) ? fabricDataUrls : undefined,
+        {
+          description: sharePaletteDesc.value.trim() || undefined,
+          swatchMeta: hasAnyMeta ? swatchMeta : undefined,
+          tags: tags.length > 0 ? tags : undefined,
+        }
       );
       
       closeShareModal();
-      loadSharedPalettes(); // Refresh list
       
       // Brief success feedback
       shareCurrentBtn.textContent = "Shared! ✓";
