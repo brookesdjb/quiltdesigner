@@ -97,14 +97,20 @@
 }
 
 @media (max-width: 820px) {
+  body {
+    overflow: auto;
+    height: auto;
+  }
+
   .app-container {
     height: auto;
     min-height: 100dvh;
+    overflow: visible;
   }
 
   .app-views {
     flex: 1;
-    overflow: auto;
+    overflow: visible;
   }
 
   #editor-view {
@@ -117,21 +123,25 @@
     width: 100%;
     min-width: 0;
     border-right: none;
-    border-bottom: 1px solid #2a2a4a;
+    border-top: 1px solid #2a2a4a;
     padding: 16px;
     overflow: visible;
     max-height: none;
+    height: auto;
   }
 
   .canvas-area {
     order: -1;
-    min-height: 50vh;
-    height: 50vh;
+    height: 40vh;
+    min-height: 200px;
     padding: 8px;
-    position: sticky;
-    top: 48px; /* Below header */
-    z-index: 2;
     background: #0f0f1a;
+    flex-shrink: 0;
+  }
+
+  .canvas-controls {
+    padding: 4px 8px;
+    gap: 12px;
   }
 
   #quilt-canvas {
