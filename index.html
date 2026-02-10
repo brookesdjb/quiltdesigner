@@ -171,6 +171,7 @@
       <div class="btn-row">
         <button class="btn btn-secondary" id="create-palette-btn">+ Create</button>
         <button class="btn btn-secondary" id="browse-palettes-btn">🌐 Browse</button>
+        <button class="btn btn-secondary" id="share-current-palette-btn">↗ Share</button>
       </div>
     </div>
 
@@ -370,26 +371,6 @@
     </div>
   </div>
 
-  <!-- Shared Palettes Modal -->
-  <div class="shared-palettes-overlay" id="shared-palettes-modal">
-    <div class="shared-palettes-modal">
-      <h2>
-        <span>🌐 Community Palettes</span>
-        <button class="btn btn-secondary" id="share-current-palette-btn">Share Current</button>
-      </h2>
-      <div class="shared-palettes-search">
-        <input type="text" id="palette-search" placeholder="Search palettes..." />
-      </div>
-      <div class="shared-palettes-list" id="shared-palettes-list">
-        <div class="shared-palettes-loading">Loading...</div>
-      </div>
-      <div style="display: flex; gap: 8px; justify-content: space-between;">
-        <button class="btn btn-secondary load-more-btn" id="load-more-palettes" style="display: none;">Load More</button>
-        <button class="btn btn-secondary" id="close-shared-palettes">Close</button>
-      </div>
-    </div>
-  </div>
-  
   <!-- Hidden file input for fabric uploads -->
   <input type="file" id="fabric-file-input" accept="image/*" style="display: none;" />
 
