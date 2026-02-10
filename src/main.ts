@@ -1,3 +1,4 @@
+import "./styles/main.css";
 import { Store, defaultState } from "./state";
 import { generateGrid } from "./layout";
 import { simplifyGrid } from "./simplify";
