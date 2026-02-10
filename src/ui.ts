@@ -315,6 +315,21 @@ export function bindUI(
           openEditPalette(idx);
         });
         
+        const shareBtn = document.createElement("button");
+        shareBtn.className = "palette-action-btn share";
+        shareBtn.innerHTML = "↗";
+        shareBtn.title = "Share palette";
+        shareBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          // Select this palette first, then open share modal
+          store.update({ paletteIndex: idx });
+          if (!currentUser) {
+            window.location.href = getLoginUrl();
+            return;
+          }
+          openShareModal(currentUser);
+        });
+        
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "palette-action-btn delete";
         deleteBtn.innerHTML = "×";
@@ -325,6 +340,7 @@ export function bindUI(
         });
         
         actions.appendChild(editBtn);
+        actions.appendChild(shareBtn);
         actions.appendChild(deleteBtn);
         wrapper.appendChild(actions);
         palContainer.appendChild(wrapper);
@@ -830,6 +846,7 @@ export function bindUI(
 
   // --- Auth & Share ---
   const shareCurrentBtn = $("share-current-palette-btn");
+  const authBtn = $("auth-btn");
   let currentUser: User | null = null;
 
   async function checkAuth() {
@@ -838,12 +855,24 @@ export function bindUI(
   }
 
   function updateAuthUI() {
+    // Update header auth button
     if (currentUser) {
-      shareCurrentBtn.innerHTML = `Share Palette`;
+      authBtn.innerHTML = `<span class="user-info"><img class="user-avatar" src="${currentUser.picture || ''}" alt="" />${currentUser.displayName}</span>`;
+      authBtn.title = "Signed in";
+      authBtn.onclick = null; // TODO: Could show dropdown menu
+    } else {
+      authBtn.textContent = "Sign In";
+      authBtn.title = "Sign in with Google";
+      authBtn.onclick = () => { window.location.href = getLoginUrl(); };
+    }
+    
+    // Update sidebar share button
+    if (currentUser) {
+      shareCurrentBtn.innerHTML = `↗ Share`;
       shareCurrentBtn.title = `Share the current palette as ${currentUser.displayName}`;
     } else {
-      shareCurrentBtn.textContent = "Sign in to Share";
-      shareCurrentBtn.title = "Sign in with Google to share palettes";
+      shareCurrentBtn.textContent = "↗ Share";
+      shareCurrentBtn.title = "Sign in to share palettes";
     }
   }
 

@@ -328,6 +328,11 @@ input[type="range"]::-webkit-slider-thumb {
   color: white;
 }
 
+.palette-action-btn.share {
+  background: #22c55e;
+  color: white;
+}
+
 .palette-action-btn.delete {
   background: #ff5555;
   color: white;

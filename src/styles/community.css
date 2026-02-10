@@ -28,6 +28,27 @@
   gap: 4px;
 }
 
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header-right .user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+
+.app-header-right .user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #3a3a5a;
+}
+
 .app-nav-tab {
   padding: 8px 16px;
   font-size: 0.85rem;
