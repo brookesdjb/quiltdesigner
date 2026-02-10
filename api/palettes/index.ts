@@ -107,11 +107,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const palette: SharedPalette = {
         id,
         name: body.name.trim(),
+        description: body.description?.trim(),
         colors: body.colors,
         userId: session.user.id,
         userName: session.user.displayName || session.user.name,
         hasFabrics: !!body.fabricDataUrls && body.fabricDataUrls.length > 0,
         fabricDataUrls: body.fabricDataUrls,
+        swatchMeta: body.swatchMeta,
+        tags: body.tags?.map(t => t.trim().toLowerCase()).filter(Boolean),
         createdAt: now,
         likes: 0,
       };

@@ -1,4 +1,4 @@
-// API client for shared palettes and auth
+// API client for shared palettes, designs, and auth
 
 export interface User {
   id: string;
@@ -8,12 +8,23 @@ export interface User {
   picture?: string;
 }
 
+// Metadata for a single swatch (fabric info)
+export interface SwatchMeta {
+  fabricName?: string;    // e.g., "Kona Cotton - Nautical"
+  fabricBrand?: string;   // e.g., "Robert Kaufman"
+  shopUrl?: string;       // Link to purchase
+  notes?: string;         // User notes about this fabric
+}
+
 export interface SharedPalette {
   id: string;
   name: string;
+  description?: string;
   colors: string[];
   hasFabrics: boolean;
   fabricDataUrls?: string[];
+  swatchMeta?: SwatchMeta[];
+  tags?: string[];
   createdAt: number;
   likes: number;
   userId?: string;
@@ -22,6 +33,29 @@ export interface SharedPalette {
 
 export interface PaletteListResponse {
   palettes: SharedPalette[];
+  cursor?: string;
+  hasMore: boolean;
+}
+
+// Shared design types
+export interface SharedDesign {
+  id: string;
+  name: string;
+  description?: string;
+  paletteId: string;
+  paletteName?: string;
+  paletteColors?: string[];
+  designData: string;
+  thumbnailUrl?: string;
+  tags?: string[];
+  createdAt: number;
+  likes: number;
+  userId?: string;
+  userName?: string;
+}
+
+export interface DesignListResponse {
+  designs: SharedDesign[];
   cursor?: string;
   hasMore: boolean;
 }
@@ -55,12 +89,24 @@ export async function fetchPalette(id: string): Promise<SharedPalette> {
 export async function sharePalette(
   name: string, 
   colors: string[], 
-  fabricDataUrls?: string[]
+  fabricDataUrls?: string[],
+  options?: {
+    description?: string;
+    swatchMeta?: SwatchMeta[];
+    tags?: string[];
+  }
 ): Promise<SharedPalette> {
   const res = await fetch(`${API_BASE}/palettes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, colors, fabricDataUrls }),
+    body: JSON.stringify({ 
+      name, 
+      colors, 
+      fabricDataUrls,
+      description: options?.description,
+      swatchMeta: options?.swatchMeta,
+      tags: options?.tags,
+    }),
   });
   
   if (!res.ok) {
@@ -83,6 +129,75 @@ export async function likePalette(id: string): Promise<{ likes: number }> {
   
   if (!res.ok) {
     throw new Error("Failed to like palette");
+  }
+  return res.json();
+}
+
+// --- Design API ---
+
+export async function fetchSharedDesigns(
+  cursor?: string, 
+  search?: string,
+  paletteId?: string
+): Promise<DesignListResponse> {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  if (search) params.set("search", search);
+  if (paletteId) params.set("paletteId", paletteId);
+  const queryString = params.toString();
+  
+  const res = await fetch(`${API_BASE}/designs${queryString ? `?${queryString}` : ""}`);
+  
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Fetch designs error:", res.status, text);
+    throw new Error("Failed to fetch designs");
+  }
+  return res.json();
+}
+
+export async function fetchDesign(id: string): Promise<SharedDesign> {
+  const res = await fetch(`${API_BASE}/designs/${id}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch design");
+  }
+  return res.json();
+}
+
+export async function shareDesign(data: {
+  name: string;
+  paletteId: string;
+  designData: string;
+  description?: string;
+  thumbnailUrl?: string;
+  tags?: string[];
+}): Promise<SharedDesign> {
+  const res = await fetch(`${API_BASE}/designs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Share design error:", res.status, text);
+    try {
+      const error = JSON.parse(text);
+      throw new Error(error.error || "Failed to share design");
+    } catch {
+      throw new Error(`Failed to share design: ${res.status}`);
+    }
+  }
+  return res.json();
+}
+
+export async function likeDesign(id: string): Promise<{ likes: number }> {
+  const res = await fetch(`${API_BASE}/designs/${id}?action=like`, {
+    method: "POST",
+  });
+  
+  if (!res.ok) {
+    throw new Error("Failed to like design");
   }
   return res.json();
 }

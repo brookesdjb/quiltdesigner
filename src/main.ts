@@ -16,6 +16,8 @@ import {
   createManualEditorOverlay,
   type ManualEditorState 
 } from "./manual-editor";
+import { initCommunityView, onCommunityEnter, onCommunityLeave } from "./community";
+import type { SharedPalette, SharedDesign } from "./api-client";
 
 // Initialize Vercel Analytics
 inject();
@@ -634,3 +636,99 @@ document.querySelector(".sidebar")?.classList.add("random-mode");
 
 // Initial render
 redraw();
+
+// --- App View Navigation ---
+type AppView = "editor" | "community";
+let currentAppView: AppView = "editor";
+
+const editorView = document.getElementById("editor-view");
+const communityView = document.getElementById("community-view");
+const navEditorBtn = document.getElementById("nav-editor");
+const navCommunityBtn = document.getElementById("nav-community");
+
+function switchAppView(view: AppView) {
+  if (view === currentAppView) return;
+  
+  // Leave current view
+  if (currentAppView === "community") {
+    onCommunityLeave();
+  }
+  
+  currentAppView = view;
+  
+  // Update nav tabs
+  navEditorBtn?.classList.toggle("active", view === "editor");
+  navCommunityBtn?.classList.toggle("active", view === "community");
+  
+  // Update view visibility
+  editorView?.classList.toggle("active", view === "editor");
+  communityView?.classList.toggle("active", view === "community");
+  
+  // Enter new view
+  if (view === "community") {
+    onCommunityEnter();
+  } else {
+    // Redraw canvas when returning to editor
+    repaint();
+  }
+}
+
+navEditorBtn?.addEventListener("click", () => switchAppView("editor"));
+navCommunityBtn?.addEventListener("click", () => switchAppView("community"));
+
+// Import handlers for community view
+function importSharedPalette(palette: SharedPalette) {
+  const customPalettes = [...store.get().customPalettes];
+  const baseCount = getAllPalettes([]).length; // Get base palette count
+  
+  // Create swatches from shared palette
+  const swatches: Array<string | { type: "fabric"; dataUrl: string; sourceUrl?: string }> = 
+    palette.colors.map((color, idx) => {
+      if (palette.hasFabrics && palette.fabricDataUrls?.[idx]) {
+        return {
+          type: "fabric" as const,
+          dataUrl: palette.fabricDataUrls[idx],
+          sourceUrl: palette.fabricDataUrls[idx],
+        };
+      }
+      return color;
+    });
+  
+  const newPalette: Palette = {
+    name: palette.name,
+    colors: palette.colors,
+    swatches,
+  };
+  
+  customPalettes.push(newPalette);
+  const newPaletteIndex = baseCount + customPalettes.length - 1;
+  
+  store.update({ customPalettes, paletteIndex: newPaletteIndex });
+}
+
+function importSharedDesign(design: SharedDesign) {
+  try {
+    // Parse the design data and apply it
+    const designState = JSON.parse(design.designData);
+    store.update(designState);
+  } catch (err) {
+    console.error("Failed to import design:", err);
+    alert("Failed to load this design. It may be incompatible.");
+  }
+}
+
+// Initialize community view
+initCommunityView({
+  onSwitchToEditor: () => switchAppView("editor"),
+  onImportPalette: importSharedPalette,
+  onImportDesign: importSharedDesign,
+});
+
+// Update Browse button to open community view instead of modal
+const browsePalettesBtn = document.getElementById("browse-palettes-btn");
+if (browsePalettesBtn) {
+  // Remove old click handler by cloning
+  const newBtn = browsePalettesBtn.cloneNode(true) as HTMLElement;
+  browsePalettesBtn.parentNode?.replaceChild(newBtn, browsePalettesBtn);
+  newBtn.addEventListener("click", () => switchAppView("community"));
+}
