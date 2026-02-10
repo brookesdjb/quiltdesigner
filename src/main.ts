@@ -784,11 +784,24 @@ async function importSharedDesign(design: SharedDesign) {
   }
 }
 
+// Check if a palette with these colors already exists
+function hasPaletteColors(colors: string[]): boolean {
+  const normalized = colors.map(c => c.toUpperCase()).sort().join("|");
+  const allPalettes = getAllPalettes(store.get().customPalettes);
+  
+  return allPalettes.some(p => {
+    const paletteNormalized = p.colors.map(c => c.toUpperCase()).sort().join("|");
+    return paletteNormalized === normalized;
+  });
+}
+
 // Initialize community view
 initCommunityView({
   onSwitchToEditor: () => switchAppView("editor"),
   onImportPalette: importSharedPalette,
   onImportDesign: importSharedDesign,
+  hasPaletteColors,
+  getCurrentUserId: () => currentUser?.id ?? null,
 });
 
 // Update Browse button to open community view instead of modal

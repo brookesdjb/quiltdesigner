@@ -1,6 +1,6 @@
 // Share Design modal UI logic
 
-import { shareDesign, sharePalette, fetchSharedPalettes, type User, type SharedPalette } from "../api-client";
+import { shareDesign, sharePalette, type User } from "../api-client";
 import { isFabricSwatch, type AppState, type Palette } from "../types";
 import { BASE_PALETTES } from "../palette";
 
@@ -9,9 +9,6 @@ function $(id: string): HTMLElement {
 }
 
 // State
-let currentUserRef: User | null = null;
-let selectedPaletteId: string | null = null;
-let userSharedPalettes: SharedPalette[] = [];
 let thumbnailDataUrl: string | null = null;
 let isDefaultPalette = false;
 let defaultPaletteName: string | null = null;
@@ -24,10 +21,7 @@ let designDescInput: HTMLTextAreaElement;
 let designTagsInput: HTMLInputElement;
 let paletteSelectorSection: HTMLElement;
 let defaultPaletteMessage: HTMLElement;
-let paletteDropdown: HTMLSelectElement;
-let sharePaletteFirstBtn: HTMLElement;
-let shareNewPaletteSection: HTMLElement;
-let newPaletteNameInput: HTMLInputElement;
+let paletteInfoMessage: HTMLElement;
 let cancelBtn: HTMLElement;
 let confirmBtn: HTMLElement;
 
@@ -42,76 +36,8 @@ export interface ShareDesignCallbacks {
 
 let callbacks: ShareDesignCallbacks;
 
-async function loadUserSharedPalettes() {
-  try {
-    // Fetch palettes - we'll filter to user's own later if needed
-    // For now, fetch recent ones the user might have shared
-    const res = await fetchSharedPalettes(undefined, undefined);
-    userSharedPalettes = res.palettes.filter(p => p.userId === currentUserRef?.id);
-    renderPaletteDropdown();
-  } catch (err) {
-    console.error("Failed to load user palettes:", err);
-    userSharedPalettes = [];
-    renderPaletteDropdown();
-  }
-}
-
-function renderPaletteDropdown() {
-  paletteDropdown.innerHTML = "";
-  
-  // Default option
-  const defaultOpt = document.createElement("option");
-  defaultOpt.value = "";
-  defaultOpt.textContent = userSharedPalettes.length > 0 
-    ? "-- Select a shared palette --" 
-    : "-- No shared palettes yet --";
-  paletteDropdown.appendChild(defaultOpt);
-  
-  // User's shared palettes
-  for (const palette of userSharedPalettes) {
-    const opt = document.createElement("option");
-    opt.value = palette.id;
-    opt.textContent = `${palette.name} (${palette.colors.length} colors)`;
-    paletteDropdown.appendChild(opt);
-  }
-  
-  // Reset selection
-  selectedPaletteId = null;
-  paletteDropdown.value = "";
-  updateShareButton();
-}
-
-function updateShareButton() {
-  // Name is optional - will use generated placeholder if empty
-  
-  // For default palettes, always enabled (name has placeholder fallback)
-  if (isDefaultPalette) {
-    confirmBtn.toggleAttribute("disabled", false);
-    return;
-  }
-  
-  // For custom palettes, need either a selected palette or creating a new one
-  const hasPalette = selectedPaletteId !== null;
-  const isCreatingNew = shareNewPaletteSection.style.display !== "none";
-  const hasNewPaletteName = newPaletteNameInput.value.trim().length > 0;
-  
-  const canShare = hasPalette || (isCreatingNew && hasNewPaletteName);
-  confirmBtn.toggleAttribute("disabled", !canShare);
-}
-
-function showShareNewPaletteSection() {
-  shareNewPaletteSection.style.display = "block";
-  sharePaletteFirstBtn.style.display = "none";
-  
-  // Pre-fill with current palette name
-  const currentPalette = callbacks.getCurrentPalette();
-  newPaletteNameInput.value = currentPalette.name || "My Palette";
-  updateShareButton();
-}
-
 export function closeShareDesignModal() {
   modal.classList.remove("open");
-  selectedPaletteId = null;
   thumbnailDataUrl = null;
 }
 
@@ -120,8 +46,6 @@ export async function openShareDesignModal(user: User | null) {
     alert("Please sign in to share designs");
     return;
   }
-  
-  currentUserRef = user;
   
   // Generate thumbnail
   thumbnailDataUrl = callbacks.getCanvasThumbnail();
@@ -135,6 +59,7 @@ export async function openShareDesignModal(user: User | null) {
   
   // Check if using a default palette
   const paletteIndex = callbacks.getCurrentPaletteIndex();
+  const currentPalette = callbacks.getCurrentPalette();
   isDefaultPalette = paletteIndex < BASE_PALETTES.length;
   
   if (isDefaultPalette) {
@@ -146,6 +71,8 @@ export async function openShareDesignModal(user: User | null) {
     defaultPaletteName = null;
     defaultPaletteMessage.style.display = "none";
     paletteSelectorSection.style.display = "block";
+    // Show palette info
+    paletteInfoMessage.innerHTML = `Your palette "<strong>${currentPalette.name}</strong>" will be shared with this design.`;
   }
   
   // Reset form - use generated name as placeholder
@@ -154,17 +81,10 @@ export async function openShareDesignModal(user: User | null) {
   designNameInput.placeholder = generatedName;
   designDescInput.value = "";
   designTagsInput.value = "";
-  shareNewPaletteSection.style.display = "none";
-  sharePaletteFirstBtn.style.display = "block";
-  newPaletteNameInput.value = "";
-  selectedPaletteId = null;
   
-  // Load user's shared palettes (only needed for custom palette flow)
-  if (!isDefaultPalette) {
-    await loadUserSharedPalettes();
-  }
+  // Always enabled (name uses placeholder as fallback)
+  confirmBtn.toggleAttribute("disabled", false);
   
-  updateShareButton();
   modal.classList.add("open");
   designNameInput.focus();
 }
@@ -189,7 +109,7 @@ async function handleShare() {
       .filter(t => t.length > 0);
     
     if (isDefaultPalette && defaultPaletteName) {
-      // Using a default palette - no need to share or select a palette
+      // Using a default palette - no need to share palette
       await shareDesign({
         name,
         defaultPaletteName,
@@ -199,42 +119,20 @@ async function handleShare() {
         tags: tags.length > 0 ? tags : undefined,
       });
     } else {
-      // Custom palette flow
-      let paletteId = selectedPaletteId;
+      // Custom palette - share it (backend deduplicates automatically)
+      const fabricDataUrls = currentPalette.swatches
+        ?.map(s => isFabricSwatch(s) ? s.dataUrl : "");
       
-      // If creating new palette, share it first
-      if (!paletteId && shareNewPaletteSection.style.display !== "none") {
-        const paletteName = newPaletteNameInput.value.trim();
-        if (!paletteName) {
-          newPaletteNameInput.focus();
-          return;
-        }
-        
-        const fabricDataUrls = currentPalette.swatches
-          ?.map(s => isFabricSwatch(s) ? s.dataUrl : "");
-        
-        const sharedPalette = await sharePalette(
-          paletteName,
-          currentPalette.colors,
-          fabricDataUrls?.some(u => u) ? fabricDataUrls : undefined
-        );
-        
-        // Check if this was a duplicate palette
-        if (sharedPalette._duplicate && sharedPalette._message) {
-          console.log("Using existing palette:", sharedPalette._message);
-        }
-        
-        paletteId = sharedPalette.id;
-      }
+      const sharedPalette = await sharePalette(
+        currentPalette.name || "My Palette",
+        currentPalette.colors,
+        fabricDataUrls?.some(u => u) ? fabricDataUrls : undefined
+      );
       
-      if (!paletteId) {
-        alert("Please select or create a palette to link with this design");
-        return;
-      }
-      
+      // Use the returned palette ID (might be existing if duplicate)
       await shareDesign({
         name,
-        paletteId,
+        paletteId: sharedPalette.id,
         designData: JSON.stringify(designData),
         description: designDescInput.value.trim() || undefined,
         thumbnailUrl: thumbnailDataUrl || undefined,
@@ -285,10 +183,7 @@ export function initShareDesignModal(cbs: ShareDesignCallbacks) {
   designTagsInput = $("share-design-tags") as HTMLInputElement;
   paletteSelectorSection = $("share-design-palette-selector");
   defaultPaletteMessage = $("share-design-default-palette");
-  paletteDropdown = $("share-design-palette") as HTMLSelectElement;
-  sharePaletteFirstBtn = $("share-palette-first-btn");
-  shareNewPaletteSection = $("share-new-palette-section");
-  newPaletteNameInput = $("share-new-palette-name") as HTMLInputElement;
+  paletteInfoMessage = $("share-design-palette-info");
   cancelBtn = $("share-design-cancel");
   confirmBtn = $("share-design-confirm");
   
@@ -298,16 +193,6 @@ export function initShareDesignModal(cbs: ShareDesignCallbacks) {
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeShareDesignModal();
   });
-  
-  paletteDropdown.addEventListener("change", () => {
-    selectedPaletteId = paletteDropdown.value || null;
-    updateShareButton();
-  });
-  
-  sharePaletteFirstBtn.addEventListener("click", showShareNewPaletteSection);
-  
-  designNameInput.addEventListener("input", updateShareButton);
-  newPaletteNameInput.addEventListener("input", updateShareButton);
   
   confirmBtn.addEventListener("click", handleShare);
 }

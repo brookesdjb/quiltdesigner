@@ -5,6 +5,8 @@ import {
   fetchSharedDesigns,
   likePalette,
   likeDesign,
+  deletePalette,
+  deleteDesign,
   formatTimeAgo,
   type SharedPalette,
   type SharedDesign,
@@ -326,11 +328,28 @@ function openPaletteDetail(palette: SharedPalette) {
       <div class="detail-actions">
         <button class="btn btn-secondary" id="detail-like">❤️ Like</button>
         <button class="btn" id="detail-import">Import Palette</button>
+        <button class="btn btn-danger" id="detail-delete" style="display: none;">🗑 Delete</button>
       </div>
     </div>
   `;
 
   document.body.appendChild(modal);
+
+  // Check if palette already exists
+  const alreadyImported = hasPaletteColors?.(palette.colors) ?? false;
+  const importBtn = modal.querySelector("#detail-import") as HTMLButtonElement;
+  if (alreadyImported && importBtn) {
+    importBtn.textContent = "Already Imported";
+    importBtn.disabled = true;
+    importBtn.classList.add("btn-disabled");
+  }
+
+  // Show delete button if user owns this palette
+  const currentUserId = getCurrentUserId?.();
+  const deleteBtn = modal.querySelector("#detail-delete") as HTMLButtonElement;
+  if (currentUserId && palette.userId === currentUserId && deleteBtn) {
+    deleteBtn.style.display = "inline-block";
+  }
 
   // Event handlers
   modal.querySelector(".detail-close")?.addEventListener("click", () => modal.remove());
@@ -348,7 +367,30 @@ function openPaletteDetail(palette: SharedPalette) {
     }
   });
 
-  modal.querySelector("#detail-import")?.addEventListener("click", () => {
+  deleteBtn?.addEventListener("click", async () => {
+    if (!confirm("Delete this palette? If designs use it, it will be anonymized instead.")) return;
+    
+    try {
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = "Deleting...";
+      
+      const result = await deletePalette(palette.id);
+      
+      if (result.anonymized) {
+        alert("Palette anonymized because designs are using it.");
+      }
+      
+      modal.remove();
+      loadContent(); // Refresh the list
+    } catch (err) {
+      alert("Failed to delete: " + (err as Error).message);
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = "🗑 Delete";
+    }
+  });
+
+  importBtn?.addEventListener("click", () => {
+    if (alreadyImported) return;
     if (onImportPalette) {
       onImportPalette(palette);
     }
@@ -396,11 +438,19 @@ function openDesignDetail(design: SharedDesign) {
       <div class="detail-actions">
         <button class="btn btn-secondary" id="detail-like">❤️ Like</button>
         <button class="btn" id="detail-import">Load Design</button>
+        <button class="btn btn-danger" id="detail-delete" style="display: none;">🗑 Delete</button>
       </div>
     </div>
   `;
 
   document.body.appendChild(modal);
+
+  // Show delete button if user owns this design
+  const currentUserId = getCurrentUserId?.();
+  const deleteBtn = modal.querySelector("#detail-delete") as HTMLButtonElement;
+  if (currentUserId && design.userId === currentUserId && deleteBtn) {
+    deleteBtn.style.display = "inline-block";
+  }
 
   modal.querySelector(".detail-close")?.addEventListener("click", () => modal.remove());
   modal.addEventListener("click", (e) => {
@@ -417,6 +467,24 @@ function openDesignDetail(design: SharedDesign) {
     }
   });
 
+  deleteBtn?.addEventListener("click", async () => {
+    if (!confirm("Delete this design? This cannot be undone.")) return;
+    
+    try {
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = "Deleting...";
+      
+      await deleteDesign(design.id);
+      
+      modal.remove();
+      loadContent(); // Refresh the list
+    } catch (err) {
+      alert("Failed to delete: " + (err as Error).message);
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = "🗑 Delete";
+    }
+  });
+
   modal.querySelector("#detail-import")?.addEventListener("click", () => {
     if (onImportDesign) {
       onImportDesign(design);
@@ -427,15 +495,21 @@ function openDesignDetail(design: SharedDesign) {
 }
 
 let switchToEditor: () => void = () => {};
+let hasPaletteColors: ((colors: string[]) => boolean) | null = null;
+let getCurrentUserId: (() => string | null) | null = null;
 
 export function initCommunityView(options: {
   onSwitchToEditor: () => void;
   onImportPalette: (palette: SharedPalette) => void;
   onImportDesign: (design: SharedDesign) => void;
+  hasPaletteColors: (colors: string[]) => boolean;
+  getCurrentUserId: () => string | null;
 }) {
   switchToEditor = options.onSwitchToEditor;
   onImportPalette = options.onImportPalette;
   onImportDesign = options.onImportDesign;
+  hasPaletteColors = options.hasPaletteColors;
+  getCurrentUserId = options.getCurrentUserId;
 
   // Filter buttons
   const filterBtns = document.querySelectorAll(".filter-btn");

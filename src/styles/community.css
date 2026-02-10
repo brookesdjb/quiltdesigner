@@ -87,6 +87,11 @@
   display: flex;
 }
 
+/* Editor View */
+#editor-view {
+  flex-direction: row;
+}
+
 /* Community View */
 .community-view {
   flex-direction: column;

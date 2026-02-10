@@ -209,6 +209,40 @@ export async function likeDesign(id: string): Promise<{ likes: number }> {
   return res.json();
 }
 
+// --- Delete functions ---
+
+export interface DeletePaletteResult {
+  deleted: boolean;
+  anonymized: boolean;
+  message?: string;
+}
+
+export async function deletePalette(id: string): Promise<DeletePaletteResult> {
+  const res = await fetch(`${API_BASE}/palettes/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to delete palette");
+  }
+  return res.json();
+}
+
+export async function deleteDesign(id: string): Promise<{ deleted: boolean }> {
+  const res = await fetch(`${API_BASE}/designs/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to delete design");
+  }
+  return res.json();
+}
+
 // Format relative time
 export function formatTimeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
