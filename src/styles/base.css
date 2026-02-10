@@ -1,0 +1,12 @@
+/* Base styles - reset, body, common elements */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #0f0f1a;
+  color: #e0e0e0;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+}
+

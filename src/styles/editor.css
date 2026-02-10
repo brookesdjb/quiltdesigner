@@ -1,0 +1,140 @@
+/* Mode tabs */
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 10px 16px;
+  background: #2a2a4a;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  color: #8888aa;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mode-tab:hover {
+  background: #3a3a5a;
+  color: #ccccdd;
+}
+
+.mode-tab.active {
+  background: #6c63ff;
+  border-color: #6c63ff;
+  color: white;
+}
+
+/* Manual editor overlay */
+.manual-editor-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.cell-hover-controls {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  background: rgba(26, 26, 46, 0.95);
+  border-radius: 4px;
+  border: 1px solid #3a3a5a;
+}
+
+.cell-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: #6c63ff;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.cell-btn:hover {
+  background: #5a52e0;
+}
+
+.primary-segment-overlay {
+  position: absolute;
+  background: rgba(100, 149, 237, 0.15);
+  border: 2px dashed rgba(100, 149, 237, 0.6);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.symmetry-guide {
+  position: absolute;
+  pointer-events: none;
+}
+
+.symmetry-guide.horizontal {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgba(100, 149, 237, 0.6) 0, rgba(100, 149, 237, 0.6) 8px, transparent 8px, transparent 16px);
+}
+
+.symmetry-guide.vertical {
+  width: 2px;
+  background: repeating-linear-gradient(0deg, rgba(100, 149, 237, 0.6) 0, rgba(100, 149, 237, 0.6) 8px, transparent 8px, transparent 16px);
+}
+
+/* Hide random controls in manual mode */
+.manual-mode .random-only {
+  display: none;
+}
+
+.random-mode .manual-only {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  body {
+    flex-direction: column;
+    height: auto;
+    overflow: auto;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid #2a2a4a;
+    padding: 16px;
+  }
+
+  .canvas-area {
+    order: -1;
+    min-height: 50vh;
+    height: 50vh;
+    padding: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #0f0f1a;
+  }
+
+  #quilt-canvas {
+    height: 100%;
+  }
+
+  .slider-row {
+    gap: 8px;
+  }
+
+  .btn-row {
+    gap: 6px;
+  }
+
+  .palette-colors {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

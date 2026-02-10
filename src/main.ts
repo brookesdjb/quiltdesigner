@@ -1,4 +1,11 @@
-import "./styles/main.css";
+// Styles - split into logical components
+import "./styles/base.css";
+import "./styles/sidebar.css";
+import "./styles/canvas.css";
+import "./styles/modals.css";
+import "./styles/share-modal.css";
+import "./styles/community.css";
+import "./styles/editor.css";
 import { Store, defaultState } from "./state";
 import { generateGrid } from "./layout";
 import { simplifyGrid } from "./simplify";
