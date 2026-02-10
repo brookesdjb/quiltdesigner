@@ -183,4 +183,14 @@
     padding: 6px 10px;
     font-size: 0.8rem;
   }
+
+  /* Hide username, show only avatar */
+  .app-header-right .user-info {
+    font-size: 0;
+  }
+
+  .app-header-right .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
 }
