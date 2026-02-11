@@ -839,28 +839,34 @@ export function bindUI(
   });
 
   // --- Scale / Quilt size controls ---
+  // Standard quilt sizes (width × length in inches)
   const QUILT_SIZES: Record<string, { width: number; length: number }> = {
-    baby:   { width: 36, length: 52 },
-    throw:  { width: 50, length: 65 },
-    twin:   { width: 66, length: 90 },
-    double: { width: 80, length: 90 },
-    queen:  { width: 90, length: 100 },
-    king:   { width: 108, length: 100 },
+    baby:     { width: 30, length: 40 },
+    crib:     { width: 36, length: 52 },
+    throw:    { width: 50, length: 65 },
+    twin:     { width: 70, length: 90 },
+    xltwin:   { width: 70, length: 95 },
+    double:   { width: 85, length: 108 },
+    queen:    { width: 90, length: 108 },
+    king:     { width: 110, length: 108 },
+    calking:  { width: 106, length: 112 },
   };
   const CM_PER_INCH = 2.54;
 
-  // Imperial block size options: finished size (cut size)
+  // Block size options: finished size (cut size with 1/4" seam allowance)
   const IMPERIAL_BLOCK_OPTIONS = [
-    { value: "9.5", label: '9.5″ (10″ cut)' },
-    { value: "4.5", label: '4.5″ (5″ cut)' },
-    { value: "2", label: '2″ (2.5″ cut)' },
+    { value: "3.5", label: '3.5″ (4″ cut)' },
+    { value: "2.5", label: '2.5″ (3″ cut)' },
+    { value: "1.5", label: '1.5″ (2″ cut)' },
+    { value: "0.75", label: '0.75″ (1″ cut)' },
     { value: "custom", label: "Custom…" },
   ];
   // Metric equivalents
   const METRIC_BLOCK_OPTIONS = [
-    { value: String(25 / CM_PER_INCH), label: "25 cm (26 cm cut)" },
-    { value: String(12.5 / CM_PER_INCH), label: "12.5 cm (13 cm cut)" },
-    { value: String(6 / CM_PER_INCH), label: "6 cm (6.5 cm cut)" },
+    { value: String(9 / CM_PER_INCH), label: "9 cm (10 cm cut)" },
+    { value: String(6 / CM_PER_INCH), label: "6 cm (7 cm cut)" },
+    { value: String(4 / CM_PER_INCH), label: "4 cm (5 cm cut)" },
+    { value: String(2 / CM_PER_INCH), label: "2 cm (3 cm cut)" },
     { value: "custom", label: "Custom…" },
   ];
 
