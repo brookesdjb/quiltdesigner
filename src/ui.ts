@@ -4,7 +4,7 @@ import { getAllPalettes, BASE_PALETTES } from "./palette";
 import { loadGenerations, saveGeneration, generateName } from "./generations";
 import { createFabricEditor } from "./fabric-editor";
 import type { Palette } from "./types";
-import { getCurrentUser, getLoginUrl, type User } from "./api-client";
+import { getCurrentUser, getLoginUrl, getLogoutUrl, type User } from "./api-client";
 import { initShareModal, openShareModal } from "./ui/share";
 
 const SYMMETRY_MODE_LABELS: { mode: SymmetryMode; label: string }[] = [
@@ -1056,8 +1056,8 @@ export function bindUI(
     // Update header auth button
     if (currentUser) {
       authBtn.innerHTML = `<span class="user-info"><img class="user-avatar" src="${currentUser.picture || ''}" alt="" />${currentUser.displayName}</span>`;
-      authBtn.title = "Signed in";
-      authBtn.onclick = null; // TODO: Could show dropdown menu
+      authBtn.title = "Sign out";
+      authBtn.onclick = () => { window.location.href = getLogoutUrl(); };
     } else {
       authBtn.textContent = "Sign In";
       authBtn.title = "Sign in with Google";
