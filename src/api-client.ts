@@ -268,8 +268,8 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-export function getLoginUrl(): string {
-  return `${API_BASE}/auth/login/google`;
+export function getLoginUrl(provider: "google" | "facebook" = "google"): string {
+  return `${API_BASE}/auth/login?provider=${provider}`;
 }
 
 export function getLogoutUrl(): string {

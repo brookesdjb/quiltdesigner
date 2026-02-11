@@ -154,7 +154,7 @@ function getBaseUrl(): string {
 export function getGoogleAuthUrl(): string {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
-    redirect_uri: `${getBaseUrl()}/api/auth/callback/google`,
+    redirect_uri: `${getBaseUrl()}/api/auth/callback?provider=google`,
     response_type: "code",
     scope: "openid email profile",
     access_type: "offline",
@@ -169,7 +169,7 @@ export async function exchangeGoogleCode(code: string): Promise<{
   name: string;
   picture?: string;
 } | null> {
-  const redirectUri = `${getBaseUrl()}/api/auth/callback/google`;
+  const redirectUri = `${getBaseUrl()}/api/auth/callback?provider=google`;
   
   // Exchange code for tokens
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -214,7 +214,7 @@ export async function exchangeGoogleCode(code: string): Promise<{
 export function getFacebookAuthUrl(): string {
   const params = new URLSearchParams({
     client_id: process.env.FACEBOOK_APP_ID!,
-    redirect_uri: `${getBaseUrl()}/api/auth/callback/facebook`,
+    redirect_uri: `${getBaseUrl()}/api/auth/callback?provider=facebook`,
     scope: "email,public_profile",
     response_type: "code",
   });
@@ -227,7 +227,7 @@ export async function exchangeFacebookCode(code: string): Promise<{
   name: string;
   picture?: string;
 } | null> {
-  const redirectUri = `${getBaseUrl()}/api/auth/callback/facebook`;
+  const redirectUri = `${getBaseUrl()}/api/auth/callback?provider=facebook`;
   
   // Exchange code for access token
   const tokenParams = new URLSearchParams({
