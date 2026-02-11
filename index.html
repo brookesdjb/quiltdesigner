@@ -235,6 +235,38 @@
     </div>
 
     <div class="control-group">
+      <details class="advanced-section" id="scale-section">
+        <summary>Scale</summary>
+        <div class="advanced-content">
+          <div class="slider-row">
+            <input type="checkbox" id="scale-enabled" />
+            <span style="font-size:0.8rem">Show quilt dimensions</span>
+          </div>
+          <div id="scale-options" style="display:none">
+            <div class="slider-row" style="margin-top:8px">
+              <span style="font-size:0.75rem;color:#666">Block</span>
+              <select id="block-size" class="border-width-select">
+                <option value="9.5">9.5″ (10″ cut)</option>
+                <option value="4.5">4.5″ (5″ cut)</option>
+                <option value="2">2″ (2.5″ cut)</option>
+                <option value="custom">Custom…</option>
+              </select>
+            </div>
+            <div class="slider-row" id="block-size-custom-row" style="display:none">
+              <span style="font-size:0.75rem;color:#666">Size</span>
+              <input type="number" id="block-size-custom" min="0.5" max="50" step="0.5" value="9.5" style="width:60px" class="border-width-select" />
+              <span id="block-size-unit" style="font-size:0.75rem;color:#666">″</span>
+            </div>
+            <div class="slider-row" style="margin-top:4px">
+              <input type="checkbox" id="use-metric" />
+              <span style="font-size:0.75rem;color:#666">Metric (cm)</span>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="control-group">
       <label>Save / Load</label>
       <div class="save-image-row">
         <button class="btn" id="export-image">Save Image</button>
@@ -262,16 +294,29 @@
 
   <main class="canvas-area">
     <div class="canvas-controls">
+      <div class="canvas-control" id="quilt-size-control" style="display:none">
+        <span>Quilt Size</span>
+        <select id="quilt-size" class="border-width-select">
+          <option value="">Custom</option>
+          <option value="baby">Baby</option>
+          <option value="throw">Throw</option>
+          <option value="twin">Twin</option>
+          <option value="double">Double</option>
+          <option value="queen">Queen</option>
+          <option value="king">King</option>
+        </select>
+      </div>
       <div class="canvas-control">
         <span>Columns</span>
-        <input type="range" id="grid-width" min="1" max="10" value="2" />
+        <input type="range" id="grid-width" min="1" max="20" value="2" />
         <span class="val" id="grid-width-val">2</span>
       </div>
       <div class="canvas-control">
         <span>Rows</span>
-        <input type="range" id="grid-height" min="1" max="10" value="2" />
+        <input type="range" id="grid-height" min="1" max="20" value="2" />
         <span class="val" id="grid-height-val">2</span>
       </div>
+      <span class="quilt-dimensions" id="quilt-dimensions" style="display:none"></span>
     </div>
     <div class="canvas-wrapper">
       <canvas id="quilt-canvas"></canvas>

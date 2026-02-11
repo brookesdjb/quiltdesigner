@@ -77,5 +77,10 @@ export function defaultState(): AppState {
     repeatHeight: 4,
     outerBorder: { lineCount: 0, colors: [], widthFraction: 1 },
     sashingBorder: { lineCount: 0, colors: [], widthFraction: 1 },
+    scaleEnabled: false,
+    blockSizeInches: 25 / 2.54,
+    blockSizeCustom: false,
+    useMetric: true,
+    quiltSize: "",
   };
 }

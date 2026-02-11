@@ -55,6 +55,11 @@ export interface AppState {
   repeatHeight: number;
   outerBorder: BorderConfig;
   sashingBorder: BorderConfig;  // between repeat blocks
+  scaleEnabled: boolean;        // whether scale/dimensions feature is active
+  blockSizeInches: number;      // finished block size in inches (e.g. 9.5)
+  blockSizeCustom: boolean;     // true if user entered a custom block size
+  useMetric: boolean;           // show metric (cm) instead of inches
+  quiltSize: string;            // selected quilt size key (e.g. "queen") or "" for none
 }
 
 // A swatch can be a solid color (string) or a fabric image

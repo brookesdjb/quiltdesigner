@@ -36,6 +36,13 @@
   color: #ccccdd;
 }
 
+.quilt-dimensions {
+  font-size: 0.8rem;
+  color: #8888aa;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .canvas-wrapper {
   flex: 1;
   display: flex;

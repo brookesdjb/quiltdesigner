@@ -69,11 +69,18 @@ export function bindUI(
 
   gridW.addEventListener("input", () => {
     gridWVal.textContent = gridW.value;
+    // Manual adjustment clears the quilt size lock
+    if (store.get().quiltSize) {
+      store.update({ quiltSize: "" });
+    }
     updateGridFromMultiplier();
   });
-  
+
   gridH.addEventListener("input", () => {
     gridHVal.textContent = gridH.value;
+    if (store.get().quiltSize) {
+      store.update({ quiltSize: "" });
+    }
     updateGridFromMultiplier();
   });
 
@@ -86,21 +93,25 @@ export function bindUI(
   repW.addEventListener("input", () => {
     repWVal.textContent = repW.value;
     const newRepW = Number(repW.value);
-    const multW = Number(gridW.value);
-    store.update({ 
-      repeatWidth: newRepW,
-      gridWidth: multW * newRepW
-    });
+    store.update({ repeatWidth: newRepW });
+    if (store.get().quiltSize) {
+      recalcGridForQuiltSize();
+    } else {
+      const multW = Number(gridW.value);
+      store.update({ gridWidth: multW * newRepW });
+    }
   });
-  
+
   repH.addEventListener("input", () => {
     repHVal.textContent = repH.value;
     const newRepH = Number(repH.value);
-    const multH = Number(gridH.value);
-    store.update({ 
-      repeatHeight: newRepH,
-      gridHeight: multH * newRepH
-    });
+    store.update({ repeatHeight: newRepH });
+    if (store.get().quiltSize) {
+      recalcGridForQuiltSize();
+    } else {
+      const multH = Number(gridH.value);
+      store.update({ gridHeight: multH * newRepH });
+    }
   });
 
   // --- Randomise & History ---
@@ -827,6 +838,190 @@ export function bindUI(
     });
   });
 
+  // --- Scale / Quilt size controls ---
+  const QUILT_SIZES: Record<string, { width: number; length: number }> = {
+    baby:   { width: 36, length: 52 },
+    throw:  { width: 50, length: 65 },
+    twin:   { width: 66, length: 90 },
+    double: { width: 80, length: 90 },
+    queen:  { width: 90, length: 100 },
+    king:   { width: 108, length: 100 },
+  };
+  const CM_PER_INCH = 2.54;
+
+  // Imperial block size options: finished size (cut size)
+  const IMPERIAL_BLOCK_OPTIONS = [
+    { value: "9.5", label: '9.5″ (10″ cut)' },
+    { value: "4.5", label: '4.5″ (5″ cut)' },
+    { value: "2", label: '2″ (2.5″ cut)' },
+    { value: "custom", label: "Custom…" },
+  ];
+  // Metric equivalents
+  const METRIC_BLOCK_OPTIONS = [
+    { value: String(25 / CM_PER_INCH), label: "25 cm (26 cm cut)" },
+    { value: String(12.5 / CM_PER_INCH), label: "12.5 cm (13 cm cut)" },
+    { value: String(6 / CM_PER_INCH), label: "6 cm (6.5 cm cut)" },
+    { value: "custom", label: "Custom…" },
+  ];
+
+  const scaleEnabled = $("scale-enabled") as HTMLInputElement;
+  const scaleOptions = $("scale-options");
+  const blockSizeSelect = $("block-size") as HTMLSelectElement;
+  const blockSizeCustomRow = $("block-size-custom-row");
+  const blockSizeCustom = $("block-size-custom") as HTMLInputElement;
+  const blockSizeUnit = $("block-size-unit");
+  const useMetricCheckbox = $("use-metric") as HTMLInputElement;
+  const quiltSizeControl = $("quilt-size-control");
+  const quiltSizeSelect = $("quilt-size") as HTMLSelectElement;
+  const quiltDimensions = $("quilt-dimensions");
+
+  function updateBlockSizeOptions(metric: boolean) {
+    const options = metric ? METRIC_BLOCK_OPTIONS : IMPERIAL_BLOCK_OPTIONS;
+    const state = store.get();
+    blockSizeSelect.innerHTML = "";
+    for (const opt of options) {
+      const el = document.createElement("option");
+      el.value = opt.value;
+      el.textContent = opt.label;
+      blockSizeSelect.appendChild(el);
+    }
+    if (state.blockSizeCustom) {
+      blockSizeSelect.value = "custom";
+    } else {
+      const match = options.find(o => o.value !== "custom" && Math.abs(Number(o.value) - state.blockSizeInches) < 0.01);
+      blockSizeSelect.value = match ? match.value : "custom";
+    }
+  }
+
+  function updateScaleVisibility(enabled: boolean) {
+    scaleOptions.style.display = enabled ? "block" : "none";
+    quiltSizeControl.style.display = enabled ? "flex" : "none";
+    quiltDimensions.style.display = enabled ? "inline" : "none";
+  }
+
+  // Calculate total quilt dimensions in inches, including borders and sashing
+  function calcQuiltDimensionsInches(s: typeof store extends { get(): infer T } ? T : never) {
+    const blockSize = s.blockSizeInches;
+    const cols = s.gridWidth;
+    const rows = s.gridHeight;
+
+    // Outer border: lineCount lines on each side, each line = widthFraction * blockSize
+    const outerLineCount = s.outerBorder?.lineCount || 0;
+    const outerWidthFrac = s.outerBorder?.widthFraction || 1;
+    const totalOuterPerSide = outerLineCount * outerWidthFrac * blockSize;
+
+    // Sashing: between repeat blocks
+    const sashingLineCount = s.sashingBorder?.lineCount || 0;
+    const sashingWidthFrac = s.sashingBorder?.widthFraction || 1;
+    const sashingGapsX = s.repeatWidth > 0 ? Math.floor((cols - 1) / s.repeatWidth) : 0;
+    const sashingGapsY = s.repeatHeight > 0 ? Math.floor((rows - 1) / s.repeatHeight) : 0;
+    const totalSashingX = sashingGapsX * sashingLineCount * sashingWidthFrac * blockSize;
+    const totalSashingY = sashingGapsY * sashingLineCount * sashingWidthFrac * blockSize;
+
+    return {
+      width: cols * blockSize + totalSashingX + totalOuterPerSide * 2,
+      height: rows * blockSize + totalSashingY + totalOuterPerSide * 2,
+    };
+  }
+
+  function formatDimension(inches: number, metric: boolean): string {
+    if (metric) {
+      return `${(inches * CM_PER_INCH).toFixed(0)} cm`;
+    }
+    return Number.isInteger(inches) ? `${inches}″` : `${inches.toFixed(1)}″`;
+  }
+
+  function updateQuiltDimensions() {
+    const s = store.get();
+    if (!s.scaleEnabled) return;
+    const dims = calcQuiltDimensionsInches(s);
+    const w = formatDimension(dims.width, s.useMetric);
+    const h = formatDimension(dims.height, s.useMetric);
+    quiltDimensions.textContent = `${w} × ${h}`;
+  }
+
+  // Recalculate grid dimensions from the selected quilt size and current block size
+  function recalcGridForQuiltSize() {
+    const s = store.get();
+    const quilt = QUILT_SIZES[s.quiltSize];
+    if (!quilt) return;
+    const blockSize = s.blockSizeInches;
+    const repW_ = s.repeatWidth || 4;
+    const repH_ = s.repeatHeight || 4;
+    const totalCols = Math.ceil(quilt.width / blockSize);
+    const totalRows = Math.ceil(quilt.length / blockSize);
+    const newGridW = Math.ceil(totalCols / repW_) * repW_;
+    const newGridH = Math.ceil(totalRows / repH_) * repH_;
+    store.update({ gridWidth: newGridW, gridHeight: newGridH });
+  }
+
+  function updateGridSlidersDisabled(locked: boolean) {
+    gridW.disabled = locked;
+    gridH.disabled = locked;
+    gridW.style.opacity = locked ? "0.4" : "";
+    gridH.style.opacity = locked ? "0.4" : "";
+  }
+
+  scaleEnabled.addEventListener("change", () => {
+    store.update({ scaleEnabled: scaleEnabled.checked });
+  });
+
+  blockSizeSelect.addEventListener("change", () => {
+    if (blockSizeSelect.value === "custom") {
+      blockSizeCustomRow.style.display = "flex";
+      store.update({ blockSizeCustom: true });
+    } else {
+      blockSizeCustomRow.style.display = "none";
+      store.update({ blockSizeInches: Number(blockSizeSelect.value), blockSizeCustom: false });
+      recalcGridForQuiltSize();
+    }
+  });
+
+  blockSizeCustom.addEventListener("input", () => {
+    const val = Number(blockSizeCustom.value);
+    if (val > 0) {
+      const inches = store.get().useMetric ? val / CM_PER_INCH : val;
+      store.update({ blockSizeInches: inches });
+      recalcGridForQuiltSize();
+    }
+  });
+
+  useMetricCheckbox.addEventListener("change", () => {
+    const metric = useMetricCheckbox.checked;
+    store.update({ useMetric: metric });
+    updateBlockSizeOptions(metric);
+    blockSizeUnit.textContent = metric ? "cm" : "″";
+    const s = store.get();
+    if (s.blockSizeCustom) {
+      blockSizeCustom.value = metric
+        ? (s.blockSizeInches * CM_PER_INCH).toFixed(1)
+        : String(s.blockSizeInches);
+    }
+  });
+
+  quiltSizeSelect.addEventListener("change", () => {
+    const value = quiltSizeSelect.value;
+    store.update({ quiltSize: value });
+    recalcGridForQuiltSize();
+  });
+
+  // Initialize scale controls from state
+  const initState = store.get();
+  updateBlockSizeOptions(initState.useMetric);
+  updateScaleVisibility(initState.scaleEnabled);
+  scaleEnabled.checked = initState.scaleEnabled;
+  useMetricCheckbox.checked = initState.useMetric;
+  blockSizeUnit.textContent = initState.useMetric ? "cm" : "″";
+  if (initState.blockSizeCustom) {
+    blockSizeCustomRow.style.display = "flex";
+    blockSizeCustom.value = initState.useMetric
+      ? (initState.blockSizeInches * CM_PER_INCH).toFixed(1)
+      : String(initState.blockSizeInches);
+  }
+  quiltSizeSelect.value = initState.quiltSize;
+  updateGridSlidersDisabled(!!initState.quiltSize);
+  updateQuiltDimensions();
+
   // --- Export buttons ---
   const exportImageBtn = document.getElementById("export-image");
   const exportFormatSelect = document.getElementById("export-format") as HTMLSelectElement | null;
@@ -926,6 +1121,14 @@ export function bindUI(
       renderCornerstoneSelector();
     }
     
+    // Scale controls
+    scaleEnabled.checked = s.scaleEnabled;
+    updateScaleVisibility(s.scaleEnabled);
+    blockSizeCustomRow.style.display = s.blockSizeCustom ? "flex" : "none";
+    quiltSizeSelect.value = s.quiltSize;
+    updateGridSlidersDisabled(s.scaleEnabled && !!s.quiltSize);
+    updateQuiltDimensions();
+
     // Update current design name
     const gen = loadGenerations().find(g => g.seed === s.seed);
     currentDesignName.textContent = gen?.name || generateName(s.seed);
