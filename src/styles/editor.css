@@ -215,4 +215,13 @@
     width: 14px;
     height: 14px;
   }
+
+  /* Show action buttons on active palette instead of hover */
+  .palette-btn-wrapper:hover .palette-btn-actions {
+    display: none;
+  }
+
+  .palette-btn-wrapper:has(.palette-btn.active) .palette-btn-actions {
+    display: flex;
+  }
 }
