@@ -78,7 +78,7 @@ export function defaultState(): AppState {
     outerBorder: { lineCount: 0, colors: [], widthFraction: 1 },
     sashingBorder: { lineCount: 0, colors: [], widthFraction: 1 },
     scaleEnabled: false,
-    blockSizeInches: 3.5,
+    blockSizeInches: 4,
     blockSizeCustom: false,
     useMetric: false,
     quiltSize: "",

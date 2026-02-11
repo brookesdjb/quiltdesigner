@@ -853,12 +853,12 @@ export function bindUI(
   };
   const CM_PER_INCH = 2.54;
 
-  // Block size options: finished size (cut size with 1/4" seam allowance)
+  // Block size options: finished size (cut size = finished + 1/2" for 1/4" seam allowance)
   const IMPERIAL_BLOCK_OPTIONS = [
-    { value: "3.5", label: '3.5″ (4″ cut)' },
-    { value: "2.5", label: '2.5″ (3″ cut)' },
-    { value: "1.5", label: '1.5″ (2″ cut)' },
-    { value: "0.75", label: '0.75″ (1″ cut)' },
+    { value: "4", label: '4″ (4.5″ cut)' },
+    { value: "3", label: '3″ (3.5″ cut)' },
+    { value: "2", label: '2″ (2.5″ cut)' },
+    { value: "1", label: '1″ (1.5″ cut)' },
     { value: "custom", label: "Custom…" },
   ];
   // Metric equivalents
