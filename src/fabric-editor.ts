@@ -43,7 +43,7 @@ export function createFabricEditor(
         </div>
         <div class="fabric-control">
           <label>Rotation</label>
-          <input type="range" class="fabric-rotation" min="0" max="360" value="0" />
+          <input type="range" class="fabric-rotation" min="0" max="270" step="90" value="0" />
           <span class="fabric-rotation-val">0°</span>
         </div>
         <div class="fabric-control">
