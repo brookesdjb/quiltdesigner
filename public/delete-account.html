@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Account - Quilt Designer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 480px;
+      width: 100%;
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+      color: #f0e6d3;
+    }
+    p {
+      color: #8888aa;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .warning {
+      background: #3a2020;
+      border: 1px solid #dc3545;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 24px 0;
+      color: #ffaaaa;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      text-decoration: none;
+      margin: 8px;
+      transition: all 0.15s;
+    }
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #c82333;
+    }
+    .btn-danger:disabled {
+      background: #6c3540;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #2a2a4a;
+      color: #ccc;
+      border: 1px solid #3a3a5a;
+    }
+    .btn-secondary:hover {
+      background: #3a3a5a;
+    }
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      display: none;
+    }
+    .status.error {
+      display: block;
+      background: #3a2020;
+      color: #ffaaaa;
+    }
+    .status.success {
+      display: block;
+      background: #203a20;
+      color: #aaffaa;
+    }
+    .not-logged-in {
+      display: none;
+    }
+    .logged-in {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧵 Delete Your Account</h1>
+    
+    <div id="loading">
+      <p>Checking login status...</p>
+    </div>
+
+    <div id="not-logged-in" class="not-logged-in">
+      <p>You need to be signed in to delete your account.</p>
+      <a href="/" class="btn btn-secondary">Go to Quilt Designer</a>
+    </div>
+
+    <div id="logged-in" class="logged-in">
+      <p>Signed in as <strong id="user-name"></strong></p>
+      
+      <div class="warning">
+        <strong>⚠️ This action cannot be undone</strong>
+        <p style="margin-top: 8px; margin-bottom: 0;">Deleting your account will:</p>
+        <ul style="text-align: left; margin-top: 8px; padding-left: 20px;">
+          <li>Remove your profile and saved palettes</li>
+          <li>Delete your shared designs</li>
+          <li>Anonymize shared palettes that others are using</li>
+        </ul>
+      </div>
+
+      <button id="delete-btn" class="btn btn-danger">Delete My Account</button>
+      <a href="/" class="btn btn-secondary">Cancel</a>
+
+      <div id="status" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    const loadingEl = document.getElementById('loading');
+    const notLoggedInEl = document.getElementById('not-logged-in');
+    const loggedInEl = document.getElementById('logged-in');
+    const userNameEl = document.getElementById('user-name');
+    const deleteBtn = document.getElementById('delete-btn');
+    const statusEl = document.getElementById('status');
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const data = await res.json();
+        
+        loadingEl.style.display = 'none';
+        
+        if (data.user) {
+          userNameEl.textContent = data.user.email;
+          loggedInEl.style.display = 'block';
+        } else {
+          notLoggedInEl.style.display = 'block';
+        }
+      } catch (err) {
+        loadingEl.style.display = 'none';
+        notLoggedInEl.style.display = 'block';
+      }
+    }
+
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm('Are you absolutely sure you want to delete your account? This cannot be undone.')) {
+        return;
+      }
+
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting...';
+      statusEl.className = 'status';
+      statusEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/delete-account', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        
+        const data = await res.json();
+
+        if (res.ok) {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Account deleted successfully. Redirecting...';
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else {
+          throw new Error(data.error || 'Failed to delete account');
+        }
+      } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = err.message;
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = 'Delete My Account';
+      }
+    });
+
+    checkAuth();
+  </script>
+</body>
+</html>
