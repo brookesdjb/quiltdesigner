@@ -7,7 +7,7 @@ export interface User {
   name: string;           // Full name from OAuth
   displayName?: string;   // User-chosen nickname (defaults to name)
   picture?: string;
-  provider: "google";
+  provider: "google" | "facebook";
   createdAt: number;
 }
 
@@ -42,7 +42,7 @@ export async function upsertUser(data: {
   email: string;
   name: string;
   picture?: string;
-  provider: "google";
+  provider: "google" | "facebook";
 }): Promise<User> {
   // Check if user exists
   const existingId = await redis.get<string>(AUTH_KEYS.userByEmail(data.email));
@@ -207,5 +207,72 @@ export async function exchangeGoogleCode(code: string): Promise<{
     email: userInfo.email,
     name: userInfo.name,
     picture: userInfo.picture,
+  };
+}
+
+// Facebook OAuth helpers
+export function getFacebookAuthUrl(): string {
+  const params = new URLSearchParams({
+    client_id: process.env.FACEBOOK_APP_ID!,
+    redirect_uri: `${getBaseUrl()}/api/auth/callback/facebook`,
+    scope: "email,public_profile",
+    response_type: "code",
+  });
+  
+  return `https://www.facebook.com/v18.0/dialog/oauth?${params}`;
+}
+
+export async function exchangeFacebookCode(code: string): Promise<{
+  email: string;
+  name: string;
+  picture?: string;
+} | null> {
+  const redirectUri = `${getBaseUrl()}/api/auth/callback/facebook`;
+  
+  // Exchange code for access token
+  const tokenParams = new URLSearchParams({
+    client_id: process.env.FACEBOOK_APP_ID!,
+    client_secret: process.env.FACEBOOK_APP_SECRET!,
+    redirect_uri: redirectUri,
+    code,
+  });
+  
+  const tokenRes = await fetch(
+    `https://graph.facebook.com/v18.0/oauth/access_token?${tokenParams}`
+  );
+  
+  if (!tokenRes.ok) {
+    console.error("Facebook token exchange failed:", await tokenRes.text());
+    return null;
+  }
+  
+  const tokens = await tokenRes.json();
+  
+  // Get user info
+  const userParams = new URLSearchParams({
+    fields: "id,name,email,picture.type(large)",
+    access_token: tokens.access_token,
+  });
+  
+  const userRes = await fetch(
+    `https://graph.facebook.com/v18.0/me?${userParams}`
+  );
+  
+  if (!userRes.ok) {
+    console.error("Facebook user info failed:", await userRes.text());
+    return null;
+  }
+  
+  const userInfo = await userRes.json();
+  
+  if (!userInfo.email) {
+    console.error("Facebook user has no email");
+    return null;
+  }
+  
+  return {
+    email: userInfo.email,
+    name: userInfo.name,
+    picture: userInfo.picture?.data?.url,
   };
 }
