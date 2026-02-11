@@ -193,4 +193,26 @@
     width: 32px;
     height: 32px;
   }
+
+  /* Palette buttons - fill row evenly */
+  #palette-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 8px;
+  }
+
+  .palette-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .palette-btn-wrapper {
+    display: block;
+  }
+
+  .swatch-dot {
+    width: 14px;
+    height: 14px;
+  }
 }
